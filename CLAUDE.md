@@ -70,7 +70,9 @@ A step can mix modes; the plan says which function is whose.
 7. **Simple first.** Plain functions, dataclasses, explicit loops. Optimise only after a measurement, and report it. No metaprogramming, no decorators that hide control flow, no dense one-liners.
 8. **Delete aggressively.** Every step lists what it removed. No commented-out code, dead flags or compatibility shims. Port only what the agreed workflow uses.
 9. **Semantic naming.** Verbose names for variables, parameters, functions, config keys and output columns. Units in names (`altitude_km`, `velocity_m_per_s`, `ballistic_coefficient_m2_per_kg`, `density_kg_per_m3`); `_utc` for timestamps, `_s`, `_h`, `_days` for durations. Functions are verbs, booleans are questions (`is_reentered`). Single letters only for maths in a short scope, matching a formula in the docstring.
-10. **Readable in one sitting.** Functions do one thing and fit on a screen (about 40 lines). Every module starts with a docstring (what it does, where it sits, what to read first); every public function has one (purpose, parameters with units, returns, raises, a short example where helpful). Comments explain **why**; a non-obvious choice cites its decision (`D-12`) or source. Type hints on every signature.
+10. **Readable in one sitting.** Functions do one thing and fit on a screen (about 40 lines). Every module starts with a docstring (what it does, where it sits, what to read first); every public function has one (purpose, parameters with units, returns, raises, a short example where helpful). Type hints on every signature.
+    - **Numbered step comments.** A function with more than one stage marks each stage with a numbered comment saying what it does and, when not obvious, why (`# 1. Read the file: the default location unless a path is given.`). A blank line separates the stages. Short single-stage functions need none.
+    - **Comments explain why, in plain words.** A non-obvious choice states its reason, and cites its published source where there is one. Decision ids (`D-NN`) stay in the docs (`docs/decisions.md`, `docs/code_tour.md`, `.claude/rules/`), never in code, comments, docstrings or tests.
 11. **Pure functions, I/O at the edges.** Computation takes inputs and returns outputs. Reading and writing happen in `load_*`, `read_*`, `download_*` and `save_*` functions. No hidden global state. Randomness comes from an explicit seed or `numpy.random.Generator`, and seeds are saved.
 12. **Tests as examples.** Every public function gets a test that reads as a usage example. **Ported science gives the same answer**: add an equivalence test against the old function or a saved output, with a stated tolerance. Mark tests needing Orekit, local data, the network or more than 30 s (`orekit`, `data`, `network`, `slow`). Run the step's tests and the fast suite; paste the output.
 
@@ -112,7 +114,7 @@ Three layers (D-16):
 3. **Command line**: `ldk <workflow>` in `cli.py` takes simple flags or a config file, calls one workflow and always saves. Each command is a few lines. There is no `scripts/` folder.
 
 - Config files are data: YAML loaded into typed dataclasses that the workflows accept. Notebooks call the API only.
-- Data and output roots come from a main config outside the repository.
+- Every path comes from the main config, `~/.leodragkit/main_config.yaml` by default: one directory per data source, plus the output directory (D-33, D-34). Never hard-code a path.
 - Outputs go to `<output_root>/<workflow_name>/<run_id>/` with one `manifest.json` (settings, input records, code version, seeds). A composite run keeps its stages as subfolders (D-17).
 - Every input file is recorded at load time (path, size, modification time, SHA-256), and results carry those records (D-15).
 - The ensemble forecast and the B Monte Carlo require an output folder and are the only workflows that resume (D-18).
