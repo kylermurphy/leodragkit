@@ -55,13 +55,21 @@ Its models satisfy D-10 by structure, without importing leodragkit.
 
 ## I/O and provenance
 
-**D-13. `leodragkit.io` holds orbit data only: TLEs, SP3 and attitude.** User, 2026-10-27. Every source module has the same four functions: `local_path_for_<source>`, `download_<source>` (fetches only when the remote copy is newer), `read_<source>_file` (a pure parser) and `load_<source>`. The download-if-newer check lives once, in `io/http_download.py`. Files keep the provider's names so files fetched by other tools can be reused. Forecast files are kept as dated snapshots, never overwritten. Data and output roots come from a main config outside the repository. dataio is not a dependency.
+**D-13. `leodragkit.io` holds orbit data only: TLEs, SP3 and attitude.** User, 2026-10-27. Every source module has the same four functions: `local_path_for_<source>`, `download_<source>` (fetches only when the remote copy is newer), `read_<source>_file` (a pure parser) and `load_<source>`. The download-if-newer check lives once, in `io/http_download.py`. Files keep the provider's names so files fetched by other tools can be reused. Forecast files are kept as dated snapshots, never overwritten. Data and output roots come from a main config outside the repository. dataio is not a dependency. *Superseded in part by D-34: one directory per data source instead of one data root.*
 
 **D-14. There is no CCMC ephemeris reader. Start states come from a state vector with a required frame name.** User, 2026-10-27. The CCMC reader served one Swift task. The function takes the epoch, position, velocity and frame name, with no default frame, because GCRF, ITRF and TEME vectors look alike. It ports `swift_reentry/state.py::state_from_cartesian` and `::check_cartesian_state`. An SP3 start state is a to-do.
 
 **D-15. Every input file is recorded when it is loaded: path, size, modification time and SHA-256.** User, 2026-10-27. Result objects carry the records of all their inputs and write them to the run manifest when saved. Recording at load time rather than at save time means a notebook result saved later still names the inputs it actually used. Several inputs change in place, and a file's modification time alone does not prove its content. Rejected: no records; records without a hash.
 
 **D-30. Space-Track credentials are typed at a prompt (`getpass`), asked once before a download, used to log in and then discarded.** User, 2026-10-27. Typing keeps the credentials out of files and the environment for interactive use. Other secure sources, such as environment variables for runs on GitHub, are added later by decision. Credentials never appear in the repository, configs, logs, manifests or error messages.
+
+**D-33. The main config's default location is `~/.leodragkit/main_config.yaml`, the same for a cloned repository and a pip install.** User, 2026-10-27. Every loader also accepts an explicit path. The location is stated in the README. `create_main_config` writes a new file there and never overwrites one. Rejected: a file in the repository for clones and the home folder for pip installs, which needs leodragkit to detect how it was installed and breaks with both installs; a file inside the installed package, which may be read-only and is deleted by an upgrade. This also settles how workflows find the main config, left open in the structure step: no environment variable is needed.
+
+**D-34. The main config gives the output directory and one directory per data source that leodragkit reads itself, so existing data can be reused wherever it lives.** User, 2026-10-27. Supersedes D-13's single data root. Paths must be absolute (`~` is allowed); relative paths are rejected. A missing directory is created on first load with a warning naming it, after every path has been checked, so an invalid config leaves no folders behind. Each source gets its key in the task that first reads it. T-01 adds `geometry`, `tles` and `orekit_data`. Rejected: one data root with fixed subfolders (cannot point at data elsewhere); requiring directories to exist.
+
+**D-35. `orekit_data: null` loads all Orekit data from the orekit-data pip package; a path names the user's own Orekit data folder, which must already exist.** User, 2026-10-27. That folder is never created, because an empty Orekit data folder would only fail later, far from the cause.
+
+**D-36. Space-weather directories also go in leodragkit's main config, and leodragkit passes them to the model package's loaders.** User, 2026-10-27. The user edits one file. The model package still accepts directories directly, for use without leodragkit. The keys are added in task D1, once those loaders exist.
 
 ## Workflows and outputs
 
@@ -129,6 +137,9 @@ Rejected: swift_reentry's parallel implementers in separate worktrees, and its `
 **D-32. leodragkit is released under the MIT licence.** User, 2026-10-27. This is compatible with D-28: the aero code is written from the published equations, and ADBSat's GPL-3 code is used only as a test oracle, never copied or translated.
 
 ## Documentation
+
+**D-37. Code marks the stages of a function with numbered step comments, and gives reasons in plain words; decision ids stay in the docs.** User, 2026-10-28. A function with more than one stage marks each stage with a numbered comment saying what it does and, when not obvious, why (as in `leodragkit/config.py::load_main_config`). Decision ids (`D-NN`) appear in `docs/` and `.claude/` only, never in code, comments, docstrings or tests; `docs/code_tour.md` links modules to their decisions. Supersedes the part of CLAUDE.md principle 10 that had code cite its decision ids. Rejected: decision ids in comments, which the user found harder to read.
+
 
 **D-29. A book without a DOI may be cited by a verified ISBN together with its edition.** User, 2026-10-27. Books such as Vallado's *Fundamentals of Astrodynamics and Applications* (the source of the test-only exponential atmosphere) often have no DOI. Table and equation numbers differ between editions, so the edition is part of the citation.
 

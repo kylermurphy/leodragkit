@@ -16,8 +16,8 @@ The tracks are interleaved or run one after the other, never in parallel.
 
 | ID | Task | Depends on | Size | Status | Notes |
 |---|---|---|---|---|---|
-| T-00 | Repository skeleton: `pyproject.toml` (name, `ldk` entry point, dependencies), `environment.yml`, empty subpackages with module docstrings, pytest markers, `docs/`, `.claude/` files, `.claude/settings.local.json` with swift_reentry in `additionalDirectories` | none | S | in progress | Check in the first session that subagents can read swift_reentry. |
-| T-01 | Main config: data and output roots, typed and validated | T-00 | S | todo | Everything else reads it. |
+| T-00 | Repository skeleton: `pyproject.toml` (name, `ldk` entry point, dependencies), `environment.yml`, empty subpackages with module docstrings, pytest markers, `docs/`, `.claude/` files, `.claude/settings.local.json` with swift_reentry in `additionalDirectories` | none | S | done (2026-10-27) | Still to confirm in a Claude Code session: reading swift_reentry works, editing it is refused. |
+| T-01 | Main config: output directory and one directory per data source, typed and validated | T-00 | S | done (2026-10-28) | D-33 to D-36. Everything else reads it. |
 
 ## Track A: aero (first priority)
 

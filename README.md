@@ -6,7 +6,7 @@ Satellite drag in low Earth orbit: thermospheric density, spacecraft aerodynamic
 import leodragkit as ldk
 ```
 
-> **Status: skeleton (task T-00).** The package installs and `ldk --help` runs; no features are built yet. Every other command and API call below is **planned**: names and arguments are settled in each task's plan and may change. Progress is tracked in [`docs/tasks.md`](docs/tasks.md).
+> **Status: skeleton (tasks T-00, T-01).** The package installs, `ldk --help` runs and the main config loads; no features are built yet. Every other command and API call below is **planned**: names and arguments are settled in each task's plan and may change. Progress is tracked in [`docs/tasks.md`](docs/tasks.md).
 
 ## What it does
 
@@ -36,20 +36,41 @@ pytest -m "not slow and not network"
 
 Pinned versions and the reasons for them are in `environment.yml`.
 
-Planned: the separate density-model package (name to be decided) is added to the environment when it exists, and the main config will give the location of Orekit's data.
+Planned: the separate density-model package (name to be decided) is added to the environment when it exists.
 
-## Configuration (planned)
+## Configuration
 
-One **main config**, kept outside the repository, says where data and outputs live:
+leodragkit reads its paths from one **main config**, a small YAML file. Its default location is the same for a cloned repository and a pip install:
 
 ```
-<data_root>/      downloads (TLEs, SP3, attitude) and caches, under the providers' own file names
-<output_root>/    saved results: <output_root>/<workflow_name>/<run_id>/
+~/.leodragkit/main_config.yaml
 ```
 
-Because data files keep the providers' names, files already downloaded by other tools can be reused. A file is downloaded again only when the remote copy is newer.
+(`C:\Users\<you>\.leodragkit\main_config.yaml` on Windows.) Create it once:
 
-Each workflow takes typed settings. These can be built in Python or loaded from a YAML file.
+```python
+from leodragkit.config import create_main_config, load_main_config
+
+create_main_config(data_root="D:/data/leodragkit", output_directory="D:/outputs/leodragkit")
+main_config = load_main_config()        # or load_main_config("path/to/another_config.yaml")
+```
+
+or copy [`config/main_config.example.yaml`](config/main_config.example.yaml) there and edit it:
+
+```yaml
+output_directory: D:/outputs/leodragkit
+data_directories:
+  geometry: D:/data/leodragkit/geometry   # spacecraft panel tables
+  tles: D:/data/space_track/tles          # TLE history from Space-Track
+  orekit_data: null                       # null: the orekit-data pip package; or your own Orekit data folder
+```
+
+- **One directory per data source**, so you can point leodragkit at data you already have. New sources get their key as they are added.
+- **Paths must be absolute** (`~` is allowed). A missing directory is created on first load, with a warning naming it.
+- **`orekit_data`** is the exception: with `null`, all Orekit data comes from the orekit-data pip package; a folder named there must already exist.
+- **Saved runs** go to `<output_directory>/<workflow_name>/<run_id>/`.
+
+Each workflow also takes typed settings, built in Python or loaded from a YAML file.
 
 ## Two ways to work
 
