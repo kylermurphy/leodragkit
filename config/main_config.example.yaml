@@ -1,0 +1,16 @@
+# leodragkit main config.
+#
+# Default location, for clones and pip installs alike: ~/.leodragkit/main_config.yaml
+# Create it with leodragkit.config.create_main_config(data_root=..., output_directory=...),
+# or copy this file there and edit it.
+#
+# Paths must be absolute ("~" is allowed). On Windows use forward slashes, or leave paths unquoted.
+# A missing directory is created on first load, with a warning naming it.
+# orekit_data is the exception: a folder named there must already exist.
+
+output_directory: D:/outputs/leodragkit
+
+data_directories:
+  geometry: D:/data/leodragkit/geometry   # spacecraft panel tables (aero)
+  tles: D:/data/space_track/tles          # TLE history downloaded from Space-Track
+  orekit_data: null                       # null: the orekit-data pip package; or your own Orekit data folder
