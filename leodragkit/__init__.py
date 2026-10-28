@@ -5,7 +5,7 @@ atmosphere (``density``) and the spacecraft (``aero``), plus Orekit-based propag
 (``orbit``), ensemble forecasts (``forecast``) and one function per task (``workflows``).
 
 This module imports no subpackage, so ``import leodragkit`` stays light: it never starts
-the JVM or loads a density model (D-04, D-05).
+the JVM or loads a density model.
 
 Read first: ``README.md``, then ``docs/code_tour.md``.
 """

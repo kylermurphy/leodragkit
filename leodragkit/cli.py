@@ -1,7 +1,7 @@
 """Command line for leodragkit: ``ldk <workflow>``.
 
 Each command will be a few lines: parse arguments or a config file, call one function in
-``leodragkit.workflows`` and save its result (D-16). No commands exist yet; they are added as
+``leodragkit.workflows`` and save its result. No commands exist yet; they are added as
 each workflow lands (task W1, ``docs/tasks.md``).
 """
 
