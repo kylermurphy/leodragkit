@@ -218,3 +218,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Data and outputs live outside the repository (main config); these catch strays
+outputs/
+data_cache/
+
+# Personal Claude Code files (machine-specific paths)
+CLAUDE.local.md
+.claude/settings.local.json

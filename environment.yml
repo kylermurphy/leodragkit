@@ -1,0 +1,28 @@
+# conda env create -f environment.yml
+# conda activate leodragkit
+# pip install -e .
+#
+# Adapted from swift_reentry/environment.yml, keeping only what leodragkit uses.
+# Pins with a recorded reason are set here; record exact versions of the rest after the first build.
+name: leodragkit
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - numpy=2.2         # orekit_jpype requires numpy<2.3; pinned here so pip never installs its own wheel
+  - pandas
+  - scipy
+  - matplotlib
+  - pyarrow
+  - pyyaml
+  - requests
+  - ipykernel
+  - jupyterlab
+  - pytest
+  - pip
+  - pip:
+      - orekit_jpype==13.1.4.0
+      - jdk4py          # the Java runtime orekit_jpype starts
+      # Orekit data (EOP, gravity, ephemerides) as a pip package, as in swift_reentry and contigo
+      - git+https://gitlab.orekit.org/orekit/orekit-data.git
+      - pymsis==0.13.0  # the pymsis pitfalls in .claude/rules/density.md were checked against 0.13.0

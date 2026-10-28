@@ -1,0 +1,45 @@
+# Adapted from swift_reentry/pyproject.toml: same build backend, package discovery and test markers.
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "leodragkit"
+version = "0.1.0.dev0"
+description = "Satellite drag in low Earth orbit: thermospheric density, spacecraft aerodynamics and drag-focused orbit propagation"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Kyle Murphy" }]
+requires-python = ">=3.12"
+# environment.yml is the source of truth for versions; these are the direct imports,
+# so a plain pip install fails loudly if one is missing.
+dependencies = [
+    "numpy",
+    "pandas",
+    "scipy",
+    "pyyaml",
+    "requests",
+    "pyarrow",
+    "pymsis",
+    "orekit_jpype",
+]
+
+[project.scripts]
+ldk = "leodragkit.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["leodragkit*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Network tests are deselected by default; run them explicitly with -m network.
+# --strict-markers turns a misspelt marker into an error instead of a silently unselected test.
+addopts = "--strict-markers -m \"not network\""
+markers = [
+    "orekit: needs the Orekit JVM",
+    "data: needs local data under the data root of the main config",
+    "network: needs internet access",
+    "slow: takes more than about 30 s",
+]
