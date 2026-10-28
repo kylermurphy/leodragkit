@@ -1,7 +1,7 @@
 """Tests for the package skeleton: installation, the ``ldk`` command, and the import rules.
 
 The import tests run in a fresh interpreter, so modules imported by other tests cannot hide a
-violation of D-04 (aero stays light) or D-05 (no JVM on import).
+violation of the import rules: aero stays light, and importing leodragkit never starts the JVM.
 
 Run: ``pytest tests/test_package.py``
 """
@@ -12,7 +12,7 @@ import sys
 
 import leodragkit
 
-# Dependencies that aero must never load (D-04) and that ``import leodragkit`` must not start (D-05).
+# Dependencies that aero must never load, and that ``import leodragkit`` must not load either.
 HEAVY_DEPENDENCIES = {"jpype", "orekit_jpype", "pymsis", "pandas", "requests"}
 
 
