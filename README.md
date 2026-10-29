@@ -130,6 +130,7 @@ leodragkit/
 | Document | Contents |
 |---|---|
 | [`docs/tasks.md`](docs/tasks.md) | the order of work and its status |
+| [`docs/aero_plan.md`](docs/aero_plan.md) | how the aero module grows: models, geometry, shadowing, outputs, validation |
 | [`docs/decisions.md`](docs/decisions.md) | every design and science decision, with its reason (D-NN) and open questions (Q-NN) |
 | `docs/code_tour.md` | reading guide to the code, module by module (written as code lands) |
 | `docs/methods/` | method write-ups, starting with the drag-coefficient primer |
