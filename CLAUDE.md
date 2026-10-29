@@ -153,6 +153,7 @@ Updated in the same step as the code:
 - `docs/decisions.md`: every science or design decision, dated, never edited afterwards (supersede instead);
 - `docs/results_log.md`: every reported or acted-on run, with an id that docs and decisions cite;
 - `docs/methods/`: method write-ups (for example the drag-coefficient primer), with no run results;
+- `docs/plans/`: one working plan per step (`<task id>_<topic>.md`): goal, files, required reading, work order, tests, traps and when it is done (D-51);
 - module and function docstrings.
 
 Never put an unverified citation in code or docs: every citation has authors, year and a DOI checked to resolve to the work. A book without a DOI may be cited by a verified ISBN with its edition, because table and equation numbers change between editions (D-29). A technical report with neither (for example Storch 2002) is cited by author, year, title, issuing organisation, every report number on its cover and its release statement, with a note of where the copy read came from (D-49).

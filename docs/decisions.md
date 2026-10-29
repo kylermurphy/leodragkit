@@ -132,6 +132,8 @@ Full list: `.claude/rules/aero.md`.
 
 Rejected: swift_reentry's parallel implementers in separate worktrees, and its `doc-sync` agent that wrote docs. Both conflict with the slow, one-change-at-a-time pace.
 
+**D-50. A plate's force is q·A·(C_p·(−n̂_outward) + C_τ·t̂), with t̂ the flow direction (−v̂_rel) projected onto the plate and normalised; so its drag is C_d = C_p cos δ + C_τ sin δ. A plate's coefficients are returned together in a frozen dataclass.** User, 2026-10-29. Fixes the sign convention that task A5 uses to build force vectors from panels (D-39). Named fields cannot be swapped by mistake, which a tuple of three arrays would allow.
+
 ## Licence
 
 **D-32. leodragkit is released under the MIT licence.** User, 2026-10-27. This is compatible with D-28: the aero code is written from the published equations, and ADBSat's GPL-3 code is used only as a test oracle, never copied or translated.
@@ -175,6 +177,8 @@ Readers live in `leodragkit.io`. A set without positions supports forces only, a
 **D-29. A book without a DOI may be cited by a verified ISBN together with its edition.** User, 2026-10-27. Books such as Vallado's *Fundamentals of Astrodynamics and Applications* (the source of the test-only exponential atmosphere) often have no DOI. Table and equation numbers differ between editions, so the edition is part of the citation.
 
 **D-49. A technical report with neither a DOI nor an ISBN is cited by author, year, title, issuing organisation, every report number on its cover and its release statement, with a note of where the copy read came from.** User, 2026-10-29. Extends D-29; resolves Q-12. Example: Storch, J. A. (2002), *Aerodynamic disturbances on spacecraft in free-molecular flow*, The Aerospace Corporation, Aerospace Report No. TR-2003(3397)-1, SMC-TR-03-06, 17 October 2002, approved for public release, distribution unlimited; read from a scanned copy uploaded to the project.
+
+**D-51. Each step's working plan lives in `docs/plans/<task id>_<topic>.md`.** User, 2026-10-29. A plan gives the goal, files, required reading, work order, tests, traps and when the step is done, so the reading list and instructions travel with the code rather than staying in a chat. First example: `docs/plans/A1_flat_plate.md`.
 
 ---
 
