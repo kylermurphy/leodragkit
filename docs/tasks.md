@@ -21,14 +21,23 @@ The tracks are interleaved or run one after the other, never in parallel.
 
 ## Track A: aero (first priority)
 
+Plan and module layout: `docs/aero_plan.md`. Validation rungs V0–V7 are defined there.
+
 | ID | Task | Depends on | Size | Status | Notes |
 |---|---|---|---|---|---|
-| A1 | `aero/flat_plate.py`: Sentman/DRIA flat plate, with structural tests | T-00 | S | todo | The primer's first function, renamed to the naming rules (D-28). |
-| A2 | Reproduce the primer's reference values independently | A1 | S | todo | Answers Q-04: Bird's sphere formula, and ADBSat if available. |
-| A3 | `aero/panel_geometry.py` and `aero/attitude.py`: panel tables as data, quaternions with explicit conventions | A1 | M | todo | D-27. The first geometry is a box, then CHAMP. |
-| A4 | `aero/drag_area.py`: Cd·A(t) and B(t), averaging option, composition from arrays | A3 | M | todo | D-21. contigo can use it from here. The workflow `drag_area_from_attitude` comes with it (W1). |
-| A5 | Connect aero to `AtmosphereState`, with the mixed-model warning | A4, D1 | S | todo | D-12 |
-| A6 | Validate aero on CHAMP: geometry and accelerometer densities | A5 | L | todo | Needs CHAMP data I/O and a verified geometry source. |
+| A1 | `aero/flat_plate.py`: Sentman plate, returning the reflected-speed ratio and the pressure and shear coefficients (drag derived), with structural tests | T-00 | S | in progress (new template to come) | D-28, D-38, D-39. V0 |
+| A2 | Independent checks of the plate: Bird / Dey sphere by quadrature; Dey eq. 2.3 = Sentman with k = 2/3; Newton and Cook limits as test references | A1 | S | todo | Completes Q-04. V1, V2 |
+| A3 | Geometry: `PanelSet`, primitives (plate, box, cylinder), component descriptions and macro-model tables, materials; STL/OBJ and YAML readers in `io/` | A1 | M | todo | D-41, D-42. trimesh as test oracle. V3 |
+| A4 | Frames: quaternions with explicit conventions, flow direction in the body frame, fixed component poses | A3 | S | todo | D-27, D-42, D-44 |
+| A5 | Integration and the public entry: force and moment vectors, drag, lift, side force, Cd·A, B(t), averaging; batch over epochs | A4 | M | todo | D-21, D-39. The workflow `drag_area_from_attitude` comes with it (W1). V2 meshed sphere, V3 |
+| A6 | Shadowing: centroid projection with self-exclusion | A5 | M | todo | Plate-in-front-of-box, L-shape and convex-sphere cases. V3 |
+| A7 | Connect to `AtmosphereState`, with the mixed-model warning | A5, D1 | S | todo | D-10, D-12 |
+| A8 | DRIA: per-species Sentman, mass-weighted | A7 | S | todo | Q-08. V1 |
+| A9 | Accommodation: constant, and the Walker/Langmuir surface-coverage model | A8 | M | todo | Material surface-atom mass |
+| A10 | CLL plate (σ_n, σ_t), with constant and Walker accommodation | A9 | M | todo | Q-09. V1, V2 |
+| A11 | ADBSat comparison: reference numbers from ADBSat or ADBSat-PyVersion, run with explicit speeds | A6, A10 | S | todo | V4 |
+| A12 | Validation: Dey et al. GRACE and C/NOFS values; CHAMP and GRACE with TU Delft geometry, SPARTA tables and accelerometer densities | A11 | L | todo | Q-10. V5, V6 |
+| A13 | Articulated components: hinge-angle series and Sun tracking | A12 | M | todo | D-42 |
 
 ## Model package (separate repository)
 
@@ -58,6 +67,7 @@ The tracks are interleaved or run one after the other, never in parallel.
 | Task | Waits on |
 |---|---|
 | `scaled_aero` B-estimation mode | Q-06 (time-varying drag coefficient in Orekit) |
+| aero: coefficient databases and interpolation, faster shadowing, Numba/JAX, constellations, multiple reflections, analytic components, winds | D-43; a workflow that needs them |
 | SP3 reader, and start states from SP3 | a need in a workflow |
 | Attitude file reader | a real file to test against (D-27) |
 | JB2008 | a decision on drivers for ensemble members |
