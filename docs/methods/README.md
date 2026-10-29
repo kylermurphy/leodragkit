@@ -2,6 +2,6 @@
 
 Method write-ups: what a method does and why, with its equations and sources. They hold no run results; those go in `docs/results_log.md` (CLAUDE.md, "Documentation").
 
-Planned:
+Documents:
 
-- `drag_coefficient_primer.md`: the aero method (D-28). It arrives after its citation pass with the `citation-checker` agent, because documents may not contain unverified citations (see Q-03 in `docs/decisions.md`).
+- `drag_coefficient_primer.md`: the aero method (D-28). Brought in on 2026-10-28 after its citation pass, with two corrections; its last two sections record what was checked and what changed.
