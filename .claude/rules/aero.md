@@ -52,9 +52,9 @@ paths:
 Structural tests come first, because they need no reference numbers:
 
 - a single plate summed over panels equals the closed form to machine precision;
-- with large s and the re-emission term removed, the result approaches Newton (drag 2cos³δ);
+- with large s and no re-emission (r = 0), the pressure coefficient approaches Newton's 2cos²δ, and the drag coefficient approaches 2cos δ, because the shear term adds 2sin²δ cos δ (full absorption of the intercepted momentum).;
 - an edge-on plate (cos δ = 0) gives a finite value;
-- a back-facing plate gives a value ≥ 0;
+- a back-facing plate gives a small negative value (a forward push from molecules striking and leaving its rear face), negligible at s = 7 and growing in size as s falls. Never clip it to zero: summed over a sphere, the plate formula matches Bird's sphere formula only with this sign.;
 - rotating a symmetric body by a symmetry of its shape leaves Cd·A unchanged.
 
 The primer's numeric values (for example Cd = 2.1591 for a head-on plate) are derived, not published, and unverified (Q-04). Use them as reference values only after they have been reproduced independently, for example with Bird's sphere formula or ADBSat. Say in the test which check produced the number.
