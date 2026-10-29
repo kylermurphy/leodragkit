@@ -226,3 +226,6 @@ data_cache/
 # Personal Claude Code files (machine-specific paths)
 CLAUDE.local.md
 .claude/settings.local.json
+
+# Ignore vscode
+.vscode/
