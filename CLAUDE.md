@@ -155,7 +155,7 @@ Updated in the same step as the code:
 - `docs/methods/`: method write-ups (for example the drag-coefficient primer), with no run results;
 - module and function docstrings.
 
-Never put an unverified citation in code or docs: every citation has authors, year and a DOI checked to resolve to the work. A book without a DOI may be cited by a verified ISBN with its edition, because table and equation numbers change between editions (D-29).
+Never put an unverified citation in code or docs: every citation has authors, year and a DOI checked to resolve to the work. A book without a DOI may be cited by a verified ISBN with its edition, because table and equation numbers change between editions (D-29). A technical report with neither (for example Storch 2002) is cited by author, year, title, issuing organisation, every report number on its cover and its release statement, with a note of where the copy read came from (D-49).
 
 ---
 
