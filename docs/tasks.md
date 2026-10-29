@@ -25,7 +25,7 @@ Plan and module layout: `docs/aero_plan.md`. Validation rungs V0–V7 are define
 
 | ID | Task | Depends on | Size | Status | Notes |
 |---|---|---|---|---|---|
-| A1 | `aero/flat_plate.py`: Sentman plate, returning the reflected-speed ratio and the pressure and shear coefficients (drag derived), with structural tests | T-00 | S | in progress (new template to come) | D-28, D-38, D-39. V0 |
+| A1 | `aero/flat_plate.py`: Sentman plate, returning the reflected-speed ratio and the pressure and shear coefficients (drag derived), with structural tests | T-00 | S | in progress (template; user writing) | D-28, D-38, D-39, D-50. V0 |
 | A2 | Independent checks of the plate: Bird / Dey sphere by quadrature; Dey eq. 2.3 = Sentman with k = 2/3; Newton and Cook limits as test references | A1 | S | todo | Completes Q-04. V1, V2 |
 | A3 | Geometry: `PanelSet`, primitives (plate, box, cylinder), component descriptions and macro-model tables, materials; STL/OBJ and YAML readers in `io/` | A1 | M | todo | D-41, D-42. trimesh as test oracle. V3 |
 | A4 | Frames: quaternions with explicit conventions, flow direction in the body frame, fixed component poses | A3 | S | todo | D-27, D-42, D-44 |

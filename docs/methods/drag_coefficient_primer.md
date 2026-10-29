@@ -87,7 +87,7 @@ c_d = C_p\cos\delta + C_\tau\sin\delta
 
 Moe & Moe (2005, eq. 4) give the same drag coefficient in a compact form, a useful cross-check.
 
-**Back faces need no special case, but they are not zero.** For a back-facing plate (cos δ < 0), molecules striking and leaving the rear face push the plate forward, so c_d is small and **negative**. At s = 7 it is negligible (about 3 × 10⁻²³ in magnitude); at s = 1 it is about −0.05. Never clip it to zero: summed over a sphere, the plate formula matches Bird's closed-form sphere drag only with this sign (R-01).
+**Back faces need no special case, but they are not zero.** For a back-facing plate (cos δ < 0), molecules striking and leaving the rear face push the plate forward, so c_d is small and **negative**. At s = 7 it is negligible (about −1 × 10⁻²⁵); at s = 1 it is about −0.05 (α = 0.9, T∞ = 1000 K, T_w = 300 K). Compute 1 + erf(x) as erfc(−x): on a back face the erf form loses every digit and, from s ≈ 7, even the sign (R-03). Never clip it to zero: summed over a sphere, the plate formula matches Bird's closed-form sphere drag only with this sign (R-01).
 
 ### Step 4: whole satellite → Cd·A/m
 
@@ -227,7 +227,7 @@ Every DOI above was resolved through Crossref, and its title, authors, venue and
 ## Changes from the planning version
 
 - **Hyperthermal limit corrected.** The planning version said drag approaches Newton's 2cos³δ. Drag approaches 2cos δ; only the pressure coefficient approaches 2cos²δ. Sinpetru et al. 2022a, eq. 18, gives 2cos δ.
-- **Back-face sign corrected.** The planning version said a back-facing plate gives a non-negative c_d. It is small and negative (R-01).
+- **Back-face sign corrected.** The planning version said a back-facing plate gives a non-negative c_d. It is small and negative (R-01). The value at s = 7 first quoted here (3 × 10⁻²³) was a rounding error of the 1 + erf form; corrected 2026-10-29 (R-03).
 - **Citations.** The Moe & Moe link to an unofficial mirror is replaced by its DOI. Links are now DOIs, with the preprints read listed alongside.
 - **Other changes:**
   - the derived identity T_i = k s² T∞ is added;

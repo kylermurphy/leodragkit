@@ -41,3 +41,19 @@ Each entry gives:
   - Dey eq. 2.3 at α = 0.9 equals the Sentman form with k = 2/3: largest difference 4.4 × 10⁻¹⁶.
   - Dey eq. 2.3 at α = 1 equals Dey eq. 2.7 with σ_n = σ_t = 1: largest difference 2.2 × 10⁻¹⁶.
 - **What it informed:** D-40 (DRIA is Sentman per species); Q-08 (the published DRIA uses k = 2/3); the V1 tests in `docs/aero_plan.md`.
+
+## R-03. Back-face drag: 1 + erf(x) loses precision; erfc(−x) keeps it (2026-10-29)
+
+- **What was run:** an exploration while planning task A1, not a workflow. The plate drag at cos δ = −1 (α = 0.9, T∞ = 1000 K, T_w = 300 K, k = 1/2, r evaluated at each s) was computed three ways: in float64 with F = 1 + erf(s cos δ), in float64 with F = erfc(−s cos δ), and in 50-digit arithmetic with mpmath. The script was not kept; the 50-digit values are the precision references in `tests/aero/test_flat_plate.py`.
+- **Run folder:** none.
+- **Result:**
+
+  | s | float64, 1 + erf | float64, erfc | 50 digits |
+  |---|---|---|---|
+  | 3 | −3.8923 × 10⁻⁷ | −3.892324 × 10⁻⁷ | −3.892324 × 10⁻⁷ |
+  | 5 | −7.5781 × 10⁻¹⁵ | −7.596481 × 10⁻¹⁵ | −7.596481 × 10⁻¹⁵ |
+  | 7 | +3.3434 × 10⁻²³ | −9.570727 × 10⁻²⁶ | −9.570727 × 10⁻²⁶ |
+  | 10 | +1.6718 × 10⁻⁴⁵ | −2.205651 × 10⁻⁴⁸ | −2.205651 × 10⁻⁴⁸ |
+
+  The erfc form agrees with 50 digits to within 4 × 10⁻¹³ relative here; at cos δ = −0.5, 0, 0.5 and 1 (s = 7) to within 3 × 10⁻¹⁵.
+- **What it informed:** A1 computes F with erfc. The s = 7 back-face value in R-01 (3.3 × 10⁻²³) was this rounding error; the sign rule (D-38) and R-01's sphere comparison are unaffected, since these values are far below anything that matters in the integral.
