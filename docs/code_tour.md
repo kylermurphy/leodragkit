@@ -18,3 +18,5 @@ The skeleton and the main config exist so far (tasks T-00, T-01):
 - `leodragkit/<subpackage>/__init__.py`: one docstring each, saying what the subpackage will hold and what it may import.
 - `tests/test_package.py`: the installation, the `ldk` command, and the import rules D-04 and D-05.
 - `tests/test_config.py`: the main config, one test per rule, each a usage example.
+- `leodragkit/aero/flat_plate.py` (task A1, being written): one flat plate in free-molecular flow. Read `compute_reflected_speed_ratio` (how fast molecules leave the surface), then `compute_sentman_flat_plate_drag_coefficient` (the plate's drag). Method: the drag-coefficient primer, steps 2–3 (D-24, D-28).
+- `tests/aero/test_flat_plate.py`: structural checks of the plate, needing no reference numbers.
