@@ -104,11 +104,11 @@ Consequence: fitting `scaled_aero` means propagating with a B that varies in tim
 
 **D-23. Energy accommodation α and wall temperature T_w are explicit inputs with no code defaults, and both are written to every output.** User, 2026-10-27. α is the dominant uncertainty in Cd. A hidden default would reach results unnoticed (CLAUDE.md, fail fast). The primer's proposed default T_w = 400 K is not adopted as a code default.
 
-**D-24. The reflected-speed constant k is a parameter, ½ (Koppenwallner, ADBSat code) or ⅔ (Cook, Moe), defaulting to ½ and written to every output.** User, 2026-10-27. The default lets results be compared with ADBSat. The two values agree at α = 1 and differ by percent-level amounts as α falls (primer, section "Choices and pitfalls").
+**D-24. The reflected-speed constant k is a parameter, ½ (Koppenwallner, ADBSat code) or ⅔ (Cook, Moe), defaulting to ½ and written to every output.** User, 2026-10-27. The default lets results be compared with ADBSat. The two values agree at α = 1 and differ by percent-level amounts as α falls (primer, section "Choices and pitfalls"). *Superseded for DRIA by D-45.*
 
 **D-25. The relative velocity is the velocity relative to the co-rotating atmosphere, with no winds.** User, 2026-10-27. This matches contigo_edr's Earth-fixed velocity. Winds are added later, by decision, if a workflow needs them.
 
-**D-26. `aero` computes drag only, not lift.** User, 2026-10-27. Lift is perpendicular to the relative velocity, so it does no work in the co-rotating frame and does not enter contigo's energy dissipation rate. Orekit's drag force acts along the relative velocity only, so nothing uses lift yet.
+**D-26. `aero` computes drag only, not lift.** User, 2026-10-27. Lift is perpendicular to the relative velocity, so it does no work in the co-rotating frame and does not enter contigo's energy dissipation rate. Orekit's drag force acts along the relative velocity only, so nothing uses lift yet. *Superseded by D-39.*
 
 **D-27. Quaternion functions take the scalar position (first or last) and the frame pair as required arguments, with no defaults.** User, 2026-10-27. A wrong convention silently turns ram faces into wake faces. Each new attitude source gets a test that its nadir-pointing axis points down.
 
@@ -136,12 +136,45 @@ Rejected: swift_reentry's parallel implementers in separate worktrees, and its `
 
 **D-32. leodragkit is released under the MIT licence.** User, 2026-10-27. This is compatible with D-28: the aero code is written from the published equations, and ADBSat's GPL-3 code is used only as a test oracle, never copied or translated.
 
+**D-38. A back-facing panel keeps its small negative drag; panel contributions are never clipped to zero.** User, 2026-10-28. Molecules striking and leaving a rear face push the plate forward. Summed over a sphere, the plate formula matches Bird's sphere drag only with this sign (R-01), and ADBSat's force sum is likewise signed. Corrects the planning version of the primer, which said back faces give non-negative drag.
+
+**D-39. aero returns the force-coefficient vector as its authoritative result, with drag, lift and side force derived from it; moments are returned when panel positions are known, built after drag works.** User, 2026-10-29. Supersedes D-26. The plate's pressure and shear coefficients give the force vector at almost no extra cost, and a full force vector is what attitude and torque studies need. Plan: `docs/aero_plan.md`.
+
+**D-40. Gas-surface models are built in the order Sentman, then DRIA and CLL; Newton and Cook are used only as test limits.** User, 2026-10-29. DRIA is Sentman applied per species and mass-weighted (ADBSat's `coeff_DRIA.m`), so it adds a mixture rule rather than new physics. Schaaf–Chambré, Maxwell and Storch are parked until a use appears.
+
+**D-41. Every geometry becomes one canonical panel set; geometry code is our own numpy code, with trimesh used only as a test oracle.** User, 2026-10-29. There are three ways in:
+
+- YAML component descriptions (plate, box and cylinder primitives with pose, material and a two-sided flag);
+- macro-model tables (normal, area, material, optional position);
+- STL/OBJ meshes.
+
+Readers live in `leodragkit.io`. A set without positions supports forces only, and its results say so. trimesh (MIT, numpy-only core) would cover readers and primitives, but its ray casting needs extra compiled packages (rtree or Embree), and the shadowing rule is ours to write either way. Rejected: trimesh as a runtime dependency.
+
+**D-42. Satellites are made of named rigid components, each placed at a pose for every epoch before normals and shadowing are computed; poses stay fixed until articulation is built after CHAMP validation.** User, 2026-10-29. Designing this in now avoids a solver that assumes one rigid shape, which would be costly to undo. Per-epoch geometry is needed anyway, because attitude changes every epoch.
+
+**D-43. Coefficient databases, interpolation, performance work (faster shadowing search, Numba or JAX), constellations, multiple reflections, analytic components and winds are parked; aero stays vectorised over epochs and panels so they can be added.** User, 2026-10-29.
+
+**D-44. aero takes the relative-velocity vector for each epoch and never derives a speed from altitude.** User, 2026-10-29. ADBSat's built-in environment assumes a circular orbit with no co-rotation or winds (`toolbox/calc/environment.m`, `vinf = sqrt(mu_E/(R_E + h))`). Ignoring Earth's rotation alone changes the relative speed by up to about 6% and the flow direction by up to about 3.5° (derived). ADBSat comparisons feed both codes the same explicit speed and flow direction.
+
+**D-45. The reflected-speed constant is tied to the model: Sentman defaults to k = 1/2 (ADBSat's convention); DRIA and the Walker accommodation model use k = 2/3, as published.** User, 2026-10-29. Resolves Q-08 and supersedes D-24 for DRIA. Dey et al. (2025a, eq. 2.4) and Pilinski et al. (2010) define the incident kinetic temperature as mV²/(3k_B), and Walker's Langmuir constant for DRIA was fitted in that formulation. The constant used is written to every output.
+
+**D-46. CLL follows Storch (2002): the one-sided flat-plate force of the Schaaf–Chambré solution, with σ_n from Walker et al. (2014, eq. 27), as Dey et al. (2025a) apply it.** User, 2026-10-29. Resolves Q-09.
+
+- **Force vector.** Storch's eq. 3.9 gives the force per unit area as a normal component plus a component along the flow, in terms of σ_n, σ_t, the speed ratio and Γ₁, Γ₂; §3.2.2 gives the flat plate per side. This supplies the force vector (D-39). Its component along the flow reproduces Dey et al.'s eq. 2.7 (derived; to be tested in A10).
+- **Fitted variant.** Walker's fitted eq. 28 parameters, which ADBSat applies at every incidence although they were fitted for a plate facing the flow and for a sphere, come later and only for the ADBSat comparison.
+
+**D-47. TU Delft geometry and SPARTA tables are downloaded into the `geometry` data directory and never committed until their licence is confirmed.** User, 2026-10-29. Resolves Q-10 for now. The licence is checked before task A12 starts.
+
+**D-48. Analytic components (closed-form spheres and cylinders inside a satellite) are parked; their closed forms are used as tests.** User, 2026-10-29. Resolves Q-11. Examples are Dey et al. (2025a), eqs. 2.5–2.6 and 2.8–2.9.
+
 ## Documentation
 
 **D-37. Code marks the stages of a function with numbered step comments, and gives reasons in plain words; decision ids stay in the docs.** User, 2026-10-28. A function with more than one stage marks each stage with a numbered comment saying what it does and, when not obvious, why (as in `leodragkit/config.py::load_main_config`). Decision ids (`D-NN`) appear in `docs/` and `.claude/` only, never in code, comments, docstrings or tests; `docs/code_tour.md` links modules to their decisions. Supersedes the part of CLAUDE.md principle 10 that had code cite its decision ids. Rejected: decision ids in comments, which the user found harder to read.
 
 
 **D-29. A book without a DOI may be cited by a verified ISBN together with its edition.** User, 2026-10-27. Books such as Vallado's *Fundamentals of Astrodynamics and Applications* (the source of the test-only exponential atmosphere) often have no DOI. Table and equation numbers differ between editions, so the edition is part of the citation.
+
+**D-49. A technical report with neither a DOI nor an ISBN is cited by author, year, title, issuing organisation, every report number on its cover and its release statement, with a note of where the copy read came from.** User, 2026-10-29. Extends D-29; resolves Q-12. Example: Storch, J. A. (2002), *Aerodynamic disturbances on spacecraft in free-molecular flow*, The Aerospace Corporation, Aerospace Report No. TR-2003(3397)-1, SMC-TR-03-06, 17 October 2002, approved for public release, distribution unlimited; read from a scanned copy uploaded to the project.
 
 ---
 
@@ -151,9 +184,9 @@ Rejected: swift_reentry's parallel implementers in separate worktrees, and its `
 
 **Q-02. Name of the separate model package (D-11).** To be settled when that package is designed.
 
-**Q-03. Citation versions.** Parham & Barba was read as arXiv:1312.3691; the published version is doi:10.2514/6.2014-1492. The Doornbos thesis is cited as the 2011 TU Delft thesis; the published version is doi:10.1007/978-3-642-25129-0. Equation and section numbers must be checked against the version cited before either enters code or docs.
+**Q-03. Citation versions.** Parham & Barba was read as arXiv:1312.3691; the published version is doi:10.2514/6.2014-1492. The Doornbos thesis is cited as the 2011 TU Delft thesis; the published version is doi:10.1007/978-3-642-25129-0. Equation and section numbers must be checked against the version cited before either enters code or docs. *Partly resolved 2026-10-28:* the arXiv version of Parham & Barba says it was presented at the AIAA conference of doi:10.2514/6.2014-1492, and its eq. 4 (Bird's sphere drag) was checked there; Doornbos is cited by the Springer version, still unread.
 
-**Q-04. The primer's flat-plate and sphere regression values (for example Cd = 2.1591) are derived, not published.** They are unverified here. Reproduce them independently, for example against ADBSat or Bird's sphere formula, before using them as test references.
+**Q-04. The primer's flat-plate and sphere regression values (for example Cd = 2.1591) are derived, not published.** They are unverified here. Reproduce them independently, for example against ADBSat or Bird's sphere formula, before using them as test references. *Partly addressed 2026-10-28 (R-01):* the plate formula integrated over a sphere matches Bird's formula to six decimals; the plate values are reproduced from the same equations only. Task A2 completes it.
 
 **Q-05. Which servers report a modification time for the download-if-newer check?** To be determined per source when each source is ported. Space-Track is a query API, so for it "newer" means TLEs with epochs after the newest one cached.
 
@@ -166,3 +199,19 @@ Rejected: swift_reentry's parallel implementers in separate worktrees, and its `
 - which source wins when both are possible: environment variables or the prompt;
 - how a run without a terminal fails when no environment variable is set. It must raise an error at once, never wait on a prompt nobody can answer;
 - the variable names.
+
+**Q-08. Which reflected-speed constant does each model use?** D-24 made k = 1/2 the default (ADBSat's code). But DRIA as published uses T_k,i = mV²/(3k_B), i.e. k = 2/3 (Dey et al. 2025a, eq. 2.4; Pilinski et al. 2010), and Walker's Langmuir constant for DRIA was fitted in that formulation. Proposal: Sentman keeps 1/2 by default; DRIA and the Walker model use 2/3, recorded in every output. *Resolved 2026-10-29 by D-45.*
+
+**Q-09. Which CLL formulation, and where does its pressure–shear split come from?** There are two: *Resolved 2026-10-29 by D-46.*
+
+- **Dey et al. (2025a, eq. 2.7)**: the Schaaf–Chambré flat plate as derived by Storch (2002), valid at any incidence, with σ_n from Walker's eq. 27.
+- **ADBSat's `coeff_CLL.m`**: Walker's fitted eq. 28 parameters, which were fitted for a plate facing the flow and for a sphere, applied at every incidence.
+
+Proposal: Dey/Storch as the baseline, the fitted form later for the ADBSat comparison. Eq. 2.7 gives drag only. The force vector (D-39) needs the separate pressure and shear terms, from Storch (2002) or Schaaf & Chambré (1958), neither of which is available here yet.
+
+**Q-10. What licence covers TU Delft's CHAMP, GRACE, GOCE and Swarm geometry and SPARTA tables?** The standalone plan states CC BY-NC-SA 4.0; this was not confirmed. If true, the files are downloaded into the `geometry` data directory and never committed. *Resolved 2026-10-29 by D-47 (licence still to be checked before A12).*
+
+**Q-11. Should analytic components (closed-form spheres and cylinders, as Dey et al. use for booms) be supported?** Proposal: parked (D-43); their closed forms serve as tests in the meantime.
+ *Resolved 2026-10-29 by D-48.*
+
+**Q-12. How are technical reports without a DOI or ISBN cited?** Storch (2002), an Aerospace Corporation report, has neither, so D-29's rule does not cover it. Proposal: cite such reports by author, year, title, issuing organisation, every report number on the cover, and the release statement, and record where the copy read came from. For Storch: The Aerospace Corporation, Aerospace Report No. TR-2003(3397)-1, SMC-TR-03-06, 17 October 2002, approved for public release, distribution unlimited; a scanned copy (uploaded to the project) was read. *Resolved 2026-10-29 by D-49.*
