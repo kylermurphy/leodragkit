@@ -171,22 +171,21 @@ def compute_sentman_flat_plate_coefficients(
         head_on.drag_coefficient
     """
     # 1. Check the inputs; clamp cos δ to [−1, 1] when it overshoots by no more than the tolerance.
-    cos_d = _as_checked_array("cos_incidence_angle", cos_incidence_angle, minimum=-1.0, maximum=1.0)
+    cos_d = _as_checked_array("cos_incidence_angle", cos_incidence_angle, 
+                              minimum=-1.0-COS_INCIDENCE_TOLERANCE,
+                              maximum=1.0+COS_INCIDENCE_TOLERANCE)
     s = _as_checked_array("speed_ratio", speed_ratio, minimum=0.0, minimum_is_allowed=False)
     r = _as_checked_array("reflected_speed_ratio", reflected_speed_ratio, minimum=0.0)
 
-    cos_d = np.clip(c, -1.0, 1.0)  # clamp cos δ to [−1, 1] when it overshoots by no more than the tolerance
+    # clamp cos δ to [−1, 1] when it overshoots by no more than the tolerance
+    cos_d = np.clip(cos_d, -1.0, 1.0)  
+
     # 2. sin δ from cos δ (δ is in [0, π], so sin δ ≥ 0).
     sin_d = np.sqrt(1.0 - cos_d**2)
 
-    C_p = (c² + 1/(2 s²)) F + c / (s sqrt(π)) E + (r/2) [sqrt(π) c F + E / s]
-            C_τ = sin δ · c · F + sin δ / (s sqrt(π)) E
-            C_d = C_p cos δ + C_τ sin δ
-    
-
     # 3. The shared terms E and F, with F from erfc.
     E = np.exp(-s**2 * cos_d**2)
-    F = scipy.special.erfc(-s * cos_d)
+    F = erfc(-s * cos_d)
     # 4. Pressure coefficient C_p.
     c_p = (cos_d**2 + 1.0 / (2.0 * s**2)) * F + cos_d / (s * np.sqrt(np.pi)) * E + \
           (r / 2.0) * (np.sqrt(np.pi) * cos_d * F + E / s)
