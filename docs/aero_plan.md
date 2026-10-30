@@ -27,23 +27,100 @@ It is a free-molecular panel method. It is valid while molecules do not collide 
 
 ## 3. Modules
 
-All in `leodragkit/aero/`, one level deep. File readers live in `leodragkit/io/`; aero receives arrays and dictionaries.
+All in `leodragkit/aero/`, one level deep. Gas-surface models share the prefix `gas_surface`, so they sort together (D-55). File readers live in `leodragkit/io/`; aero receives arrays and its own small types.
 
 | Module | Holds | First task |
 | --- | --- | --- |
-| `flat_plate.py` | Sentman plate: reflected-speed ratio, pressure and shear coefficients | A1 |
+| `gas_surface.py` | the contract `FlatPlateCoefficients`; the model signature and the name-to-function table | A1 (contract), A5 (table) |
+| `gas_surface_sentman.py` | Sentman plate: reflected-speed ratio, pressure, shear and drag coefficients | A1 |
 | `geometry.py` | `PanelSet`: per-panel normals, areas, component and material ids; centroids and triangles when known; validation | A3 |
-| `geometry_builder.py` | primitives (plate, box, cylinder), component descriptions and macro-model tables → `PanelSet` | A3 |
+| `geometry_builder.py` | primitives (plate, box, cylinder) as triangles with a resolution setting; component descriptions and macro-model tables → `PanelSet` | A3 |
 | `materials.py` | surface properties per material: wall temperature, accommodation parameters, surface-atom mass | A3 |
-| `frames.py` | quaternions with explicit conventions (D-27), flow direction in the body frame, component poses | A4 |
-| `integration.py` | sums panels into force and moment vectors; drag, lift, side force; Cd·A; result type | A5 |
-| `drag_area.py` | the public entry: geometry + attitude + flow + atmosphere arrays → results over epochs; B(t) and averaging | A5 |
-| `shadowing.py` | which panels are hidden upstream | A6 |
-| `dria.py` | per-species Sentman with mass weighting | A8 |
-| `accommodation.py` | constant; Walker/Langmuir surface-coverage blending | A9 |
-| `cll.py` | Cercignani–Lampis–Lord flat plate | A10 |
+| `frames.py` | `Attitude` and its construction from quaternions (Q-13); a simple velocity-and-nadir attitude law; component poses; `PanelFlowGeometry` | A4 |
+| `flow_conditions.py` | `AeroAtmosphere` (aero's atmosphere input) and `FlowConditions` (speed ratios per species, mass fractions) | A4 |
+| `accommodation.py` | `SurfaceInteraction`: constant values first, Walker/Langmuir surface coverage later | A5 (constant), A9 (Walker) |
+| `integration.py` | sums panels into force and moment vectors; drag, lift, side force; Cd·A; `AerodynamicResult` | A5 |
+| `drag_area.py` | the public entry: runs the chain one chunk of epochs at a time; B(t) and averaging | A5 |
+| `shadowing.py` | which panels are hidden upstream: the exposure mask | A6 |
+| `gas_surface_dria.py` | DRIA: the Sentman plate per species, mass-weighted, k = 2/3 | A8 |
+| `gas_surface_cll.py` | CLL: Storch's one-sided plate force | A10 |
 
 In `leodragkit/io/`: `mesh_files.py` (STL binary and ASCII, OBJ with polygon faces split into triangles) and `geometry_files.py` (YAML component descriptions and macro-model tables), following the four-function template.
+
+## 3a. Data flow, types and contracts
+
+### The chain
+
+`drag_area.py` runs these stages in order, one chunk of epochs at a time, and joins the chunks at the end (D-53, D-54). Each arrow carries the type named in the next box.
+
+```mermaid
+flowchart TD
+  PS["PanelSet"] --> FR
+  AT["Attitude"] --> FR
+  VE["relative velocity (T,3)"] --> FR
+  AA["AeroAtmosphere"] --> FC
+  MT["materials"] --> AC
+  subgraph DA ["drag_area.py: one chunk of epochs at a time"]
+    FR["frames.py → PanelFlowGeometry"] --> FC["flow_conditions.py → FlowConditions"]
+    FC --> AC["accommodation.py → SurfaceInteraction"]
+    AC --> GS["gas_surface_‹model›.py → FlatPlateCoefficients (the contract)"]
+    GS --> SH["shadowing.py → exposure mask"]
+    SH --> IN["integration.py → AerodynamicResult for the chunk"]
+  end
+  IN --> RES["AerodynamicResult for all epochs"]
+```
+
+`PanelSet` also reaches `shadowing.py` (triangles) and `integration.py` (areas, normals, centroids). Shadowing comes after the model, so per-panel results can show what a hidden panel would have contributed (D-53).
+
+### Types
+
+All are frozen dataclasses, except the exposure mask, which is a boolean array. Shapes use T epochs (in a chunk), N panels and S gas species.
+
+| Type | Made by | Holds (shape) | Notes |
+| --- | --- | --- | --- |
+| `PanelSet` | `geometry_builder.py`, from YAML, a macro model or a mesh | outward unit normals (N,3); areas in m² (N,); component and material ids (N,); component and material names; optional centroids (N,3) and triangle vertices (N,3,3) | body frame, metres. Triangles wherever vertices exist; macro models are vertex-free panels, with no shadowing (D-56) |
+| `Attitude` | the workflow, via `frames.attitude_from_quaternions` or an attitude law | times (T,); `body_from_reference`, a scipy `Rotation` of T rotations; reference-frame name; source | proposed, Q-13. Quaternion conventions are required arguments with no defaults (D-27) |
+| relative velocity | the workflow, from orbit states | (T,3) m/s in the attitude's reference frame | relative to the co-rotating atmosphere; never derived from altitude (D-25, D-44). `drag_area.py` checks the frame label matches the attitude's |
+| `AeroAtmosphere` | the workflow, from `density.AtmosphereState` | temperature in K (T,); species masses in kg (S,); number densities in m⁻³ (T,S); source-model name | aero's own type, so aero never imports density (D-04). The mixed-model warning is raised when it is built (D-12) |
+| `PanelFlowGeometry` | `frames.py` | cos δ (T,N); shear directions t̂ (T,N,3); flow direction (T,3); speed (T,); per-epoch centroids (T,N,3) when known | components placed at their pose for every epoch (D-42) |
+| `FlowConditions` | `flow_conditions.py` | speed ratio per species (T,S); mean speed ratio (T,); mass fractions (T,S); temperature (T,) | its own stage, because the speed ratio drives the physics (D-53) |
+| `SurfaceInteraction` | `accommodation.py` | per panel and epoch: α (T,N), or σ_n and σ_t (T,N); wall temperature (T,N); for Walker, the coverage θ (T,) and a second, clean-surface set | the materials table supplies wall temperature and surface-atom mass |
+| `FlatPlateCoefficients` | a gas-surface model | C_p, C_τ, C_d (T,N) | **the contract** (D-50, D-52) |
+| exposure mask | `shadowing.py` | boolean (T,N) | all true, flagged in metadata, when the `PanelSet` has no triangles |
+| `AerodynamicResult` | `integration.py`, joined by `drag_area.py` | force-coefficient vector in the body frame (T,3); drag, lift, side-force coefficients (T,); moment-coefficient vector (T,3) or none; reference area and length; projected area (T,); Cd·A in m² (T,); B in m²/kg (T,) when a mass is given; optional per-panel contributions; metadata | the force vector is authoritative (D-39); metadata names the model, accommodation, k, materials, geometry source, whether shadowing and moments were possible, the speed-ratio range and any mixed-model warning |
+
+### Contracts
+
+1. Every gas-surface model returns `FlatPlateCoefficients` for one-sided plates, referenced to each panel's own area, with the signs of D-50. `integration.py` never knows which model ran.
+2. Every model has one signature, `(PanelFlowGeometry, FlowConditions, SurfaceInteraction) → FlatPlateCoefficients`, and `drag_area.py` looks it up by name in a plain dictionary. DRIA calls the Sentman plate once per species and mass-weights; the Walker model blends two results with θ. Both still return the contract.
+3. `PanelSet` is the only geometry the solver sees, however it was built.
+4. aero takes arrays and its own small types, never density or Orekit objects (D-04). The workflow translates.
+5. Back faces keep their sign; nothing is clipped (D-38).
+6. Every stage works on a chunk of epochs and is vectorised over epochs and panels, with no Python loop over panels (D-54).
+
+### Outside aero: the workflow
+
+`workflows/drag_area_from_attitude.py` builds the inputs:
+
+- reads the geometry and attitude files with `io`;
+- gets the atmosphere from `density` (MSIS) and converts it to `AeroAtmosphere`;
+- computes the relative velocity from the orbit states, expressed in the attitude's reference frame (Orekit, in `orbit/`);
+- calls `drag_area.py`;
+- returns the result, with `save_*`, `load_*` and the input records (D-15, D-16).
+
+### Where each task fits
+
+| Task | Part of the chain |
+| --- | --- |
+| A1 | `gas_surface.py` (the contract) and `gas_surface_sentman.py` |
+| A2 | checks of the Sentman model |
+| A3 | `PanelSet`, the builder and materials |
+| A4 | `frames.py` (`Attitude`, `PanelFlowGeometry`) and `flow_conditions.py` |
+| A5 | constant `SurfaceInteraction`, `integration.py`, `drag_area.py` with chunking and a timing benchmark, and the workflow |
+| A6 | `shadowing.py` |
+| A7 | `AeroAtmosphere` built from `AtmosphereState` in the workflow |
+| A8, A10 | `gas_surface_dria.py`, `gas_surface_cll.py` |
+| A9 | Walker accommodation in `accommodation.py` |
 
 ## 4. Physics
 
@@ -79,7 +156,7 @@ Sentman uses one mean molecular mass. DRIA and CLL work per species, each with i
 
 **Three ways in:**
 
-1. **Component description** (YAML in the `geometry` data directory). Named components built from primitives (plate, box, cylinder), each with a size, a pose in the body frame, a material and, for thin plates, a two-sided flag. This is the cubesat-and-deployables route, and the part with no off-the-shelf tool.
+1. **Component description** (YAML in the `geometry` data directory). Named components built from primitives (plate, box, cylinder), each with a size, a pose in the body frame, a material and, for thin plates, a two-sided flag. This is the cubesat-and-deployables route, and the part with no off-the-shelf tool. Primitives are built as triangles, with a maximum edge length so faces can be refined where shadowing needs it (D-56).
 2. **Macro-model table.** Normal, area, material and optional position per panel, as used in precise orbit determination and by Dey et al. (2025a) for GRACE and C/NOFS.
 3. **STL or OBJ mesh**, for example the TU Delft CHAMP, GRACE, GOCE and Swarm models, with components and materials assigned by a small mapping file.
 
@@ -127,7 +204,7 @@ Software verification ("did we implement the equations?") comes before physical 
 ## 9. Parked
 
 - Coefficient databases and interpolation.
-- Performance: faster shadowing search, Numba or JAX, parallel batches.
+- Further performance work: faster shadowing search, Numba or JAX, parallel batches. Chunking and vectorising are not parked: they are built in from the start (D-54).
 - Constellations.
 - Multiple reflections and concave interiors.
 - Analytic components: closed-form spheres and cylinders inside a satellite, as Dey et al. use for booms (Q-11).
@@ -137,7 +214,7 @@ Each comes back by decision when a workflow needs it (D-43).
 
 ## 10. Open questions
 
-None. Q-08 to Q-11 are resolved by D-45 to D-48, and Q-12 (citing technical reports such as Storch 2002) by D-49.
+- **Q-13.** The attitude input: the canonical form, a simple attitude law in `frames.py`, and data gaps (`docs/decisions.md`).
 
 ## References
 

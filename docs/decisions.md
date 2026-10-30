@@ -134,6 +134,20 @@ Rejected: swift_reentry's parallel implementers in separate worktrees, and its `
 
 **D-50. A plate's force is q·A·(C_p·(−n̂_outward) + C_τ·t̂), with t̂ the flow direction (−v̂_rel) projected onto the plate and normalised; so its drag is C_d = C_p cos δ + C_τ sin δ. A plate's coefficients are returned together in a frozen dataclass.** User, 2026-10-29. Fixes the sign convention that task A5 uses to build force vectors from panels (D-39). Named fields cannot be swapped by mistake, which a tuple of three arrays would allow.
 
+**D-52. Every gas-surface model returns `FlatPlateCoefficients` for one-sided plates and has one signature, `(PanelFlowGeometry, FlowConditions, SurfaceInteraction) → FlatPlateCoefficients`; `drag_area.py` picks the model by name from a plain dictionary.** User, 2026-10-29. `integration.py` then builds forces from coefficients alone and never knows which model ran. DRIA (the Sentman plate per species, mass-weighted) and the Walker blend (θ·C_ads + (1 − θ)·C_clean, linear in pressure and shear) both still return the contract. The types passed between stages are listed in `docs/aero_plan.md`, section 3a.
+
+**D-53. The aero chain runs in this order: `frames.py` → `flow_conditions.py` → `accommodation.py` → gas-surface model → `shadowing.py` → `integration.py`, all driven by `drag_area.py`.** User, 2026-10-29.
+
+- `FlowConditions` is a stage of its own, because the speed ratio per species drives the physics.
+- aero's atmosphere input is named `AeroAtmosphere`, to keep it distinct from density's `AtmosphereState`.
+- Shadowing is applied after the model, so per-panel results can show what a hidden panel would have contributed.
+
+**D-54. aero is built for speed from the start: `drag_area.py` processes epochs in chunks, and every stage is vectorised over epochs and panels with no Python loop over panels; task A5 records a timing benchmark.** User, 2026-10-29. Supersedes D-43 for chunking and vectorising. Arrays shaped (epochs, panels, 3) grow fast: 10⁴ epochs × 10⁴ panels × 3 float64 values is about 2.4 GB. Numba, JAX, faster shadowing search and coefficient databases stay parked until a measurement shows they are needed.
+
+**D-55. Gas-surface models are flat modules with a shared prefix: `gas_surface.py` holds the contract and the model table; each model is `gas_surface_<model>.py`.** User, 2026-10-29. Keeps aero one level deep (D-03) while grouping the models in any file listing. The first module, `flat_plate.py`, is renamed `gas_surface_sentman.py`, and `FlatPlateCoefficients` moves to `gas_surface.py`, so no model imports its return type from another model. Rejected: an `aero/gas_surface/` sub-package, which would break the one-level rule.
+
+**D-56. `PanelSet` holds triangles wherever vertices are known (meshes and primitives); macro models are vertex-free panels; primitives take a maximum edge length.** User, 2026-10-29. Force and drag need only one normal and area per flat face, so triangles add nothing there. Shadowing needs a point-in-shape test and resolution, because each face is wholly lit or wholly shadowed; one shape type keeps that test uniform. Macro models support force, and moments when centroids are given, but not shadowing, and their results say so.
+
 ## Licence
 
 **D-32. leodragkit is released under the MIT licence.** User, 2026-10-27. This is compatible with D-28: the aero code is written from the published equations, and ADBSat's GPL-3 code is used only as a test oracle, never copied or translated.
@@ -219,3 +233,10 @@ Proposal: Dey/Storch as the baseline, the fitted form later for the ADBSat compa
  *Resolved 2026-10-29 by D-48.*
 
 **Q-12. How are technical reports without a DOI or ISBN cited?** Storch (2002), an Aerospace Corporation report, has neither, so D-29's rule does not cover it. Proposal: cite such reports by author, year, title, issuing organisation, every report number on the cover, and the release statement, and record where the copy read came from. For Storch: The Aerospace Corporation, Aerospace Report No. TR-2003(3397)-1, SMC-TR-03-06, 17 October 2002, approved for public release, distribution unlimited; a scanned copy (uploaded to the project) was read. *Resolved 2026-10-29 by D-49.*
+
+**Q-13. What form does the attitude input take?** Proposal (`docs/aero_plan.md`, section 3a):
+
+- **Canonical form.** An `Attitude` dataclass holding a scipy `Rotation` named `body_from_reference`, plus the reference-frame name and a source. `frames.attitude_from_quaternions` converts files once, taking as required keyword arguments with no defaults: the scalar position, the quaternion algebra (Hamilton or JPL) and the rotation direction. scipy's `scalar_first` argument needs scipy ≥ 1.14.
+- **Frame check.** The workflow expresses the relative velocity in the attitude's reference frame; `drag_area.py` fails if the labels differ.
+- **Attitude law.** A simple velocity-and-nadir attitude law in `frames.py` (numpy only), for satellites without attitude data. Orekit's attitude laws come later, in `orbit/`.
+- **Data gaps.** Interpolation with `Slerp`, failing across any gap longer than a configured limit, with no default.

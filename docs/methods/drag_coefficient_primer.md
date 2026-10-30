@@ -190,7 +190,7 @@ Where the steps live in leodragkit:
 
 | Step | Module |
 | --- | --- |
-| 2–3 | `aero/flat_plate.py` |
+| 2–3 | `aero/gas_surface.py` (the contract), `aero/gas_surface_sentman.py` |
 | 4 | `aero/panel_geometry.py`, `aero/attitude.py`, `aero/drag_area.py` |
 | 1, 5 | `aero/drag_area.py`, with the atmosphere state from `density` |
 

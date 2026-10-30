@@ -10,8 +10,9 @@ Write the functions that turn a plate's incidence and the gas state into its pre
 
 | File | Change | Who |
 | --- | --- | --- |
-| `leodragkit/aero/flat_plate.py` | new template: `FlatPlateCoefficients`, `_as_checked_array` complete; two physics functions to write | Claude (template, helper); user (physics bodies) |
-| `tests/aero/test_flat_plate.py` | 29 tests | Claude |
+| `leodragkit/aero/gas_surface.py` | the contract `FlatPlateCoefficients`, complete | Claude |
+| `leodragkit/aero/gas_surface_sentman.py` | template: `_as_checked_array` complete; two physics functions to write | Claude (template, helper); user (physics bodies) |
+| `tests/aero/test_gas_surface_sentman.py` | 29 tests | Claude |
 | `docs/decisions.md` | D-50: force-sign convention and the dataclass | Claude |
 | `docs/results_log.md` | R-03: erfc versus 1 + erf on back faces | Claude |
 | `docs/methods/drag_coefficient_primer.md` | corrected back-face value (R-03) | Claude |
@@ -22,12 +23,14 @@ No code exists in swift_reentry to reuse. The libraries needed are `scipy.specia
 ## The functions
 
 ```python
+# gas_surface.py: the contract every gas-surface model returns
 @dataclass(frozen=True)
 class FlatPlateCoefficients:
     pressure_coefficient: np.ndarray   # C_p: pushes into the plate, along −n̂_outward
     shear_coefficient: np.ndarray      # C_τ: along the flow direction projected onto the plate
     drag_coefficient: np.ndarray       # C_d = C_p cos δ + C_τ sin δ: along the flow
 
+# gas_surface_sentman.py: what you write
 def compute_reflected_speed_ratio(speed_ratio, ambient_temperature_kelvin, wall_temperature_kelvin,
                                   energy_accommodation, reflected_speed_constant=0.5) -> np.ndarray
 
@@ -35,7 +38,7 @@ def compute_sentman_flat_plate_coefficients(cos_incidence_angle, speed_ratio,
                                             reflected_speed_ratio) -> FlatPlateCoefficients
 ```
 
-The plate's force is q·A·(C_p·(−n̂_outward) + C_τ·t̂), with t̂ the flow direction (−v̂_rel) projected onto the plate (D-50). Task A5 builds the force vector from this.
+The plate's force is q·A·(C_p·(−n̂_outward) + C_τ·t̂), with t̂ the flow direction (−v̂_rel) projected onto the plate (D-50). Task A5 builds the force vector from this. Every later gas-surface model returns the same dataclass (D-52); `docs/aero_plan.md`, section 3a, shows how the modules connect.
 
 ## Required reading
 
@@ -48,7 +51,7 @@ In order. The first three are essential for A1; the rest prepare for the tasks a
 | 3 | Storch 2002 (scan in the project) | §2.1 (PDF pp. 11–12): accommodation and Figs. 2.1–2.2; §3.1 (PDF p. 28): eqs. 3.7–3.9 | what pressure and shear are physically: momentum carried in and out, normal and tangential | 30 min |
 | 4 | Moe & Moe 2005 | §§1–3 | why Cd > 2, and why α falls with altitude | 30 min |
 | 5 | Dey et al. 2025a | §2.1, eqs. 2.1–2.4 | the same plate written another way, with k = 2/3; task A2 tests this identity | 15 min |
-| 6 | `docs/aero_plan.md` | §§4.1 and 7 | where these numbers go next | 10 min |
+| 6 | `docs/aero_plan.md` | §3a (data flow, types, contracts), §4.1 | where these numbers go next | 15 min |
 
 ## Work order
 
@@ -66,7 +69,7 @@ In order. The first three are essential for A1; the rest prepare for the tasks a
    5. C_τ;
    6. C_d;
    7. return the dataclass.
-3. Run `pytest tests/aero/test_flat_plate.py` after each function. The reflected-speed tests go green first.
+3. Run `pytest tests/aero/test_gas_surface_sentman.py` after each function. The reflected-speed tests go green first.
 
 ## Why F must be computed with erfc
 
@@ -112,4 +115,4 @@ The primer's physics reference values (for example Cd = 2.1591 head-on) are not 
 
 ## Done when
 
-All 29 tests pass, and the fast suite (`pytest -m "not slow and not network"`) shows 55 passed. Then send `flat_plate.py` for review. A1 is marked done in `docs/tasks.md` once the review is approved.
+All 29 tests pass, and the fast suite (`pytest -m "not slow and not network"`) shows 55 passed. Then send `gas_surface_sentman.py` for review. A1 is marked done in `docs/tasks.md` once the review is approved.

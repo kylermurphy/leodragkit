@@ -25,16 +25,16 @@ Plan and module layout: `docs/aero_plan.md`. Validation rungs V0–V7 are define
 
 | ID | Task | Depends on | Size | Status | Notes |
 |---|---|---|---|---|---|
-| A1 | `aero/flat_plate.py`: Sentman plate, returning the reflected-speed ratio and the pressure and shear coefficients (drag derived), with structural tests | T-00 | S | in progress (template; user writing) | D-28, D-38, D-39, D-50. V0 |
+| A1 | `aero/gas_surface.py` (the contract) and `aero/gas_surface_sentman.py`: Sentman plate, returning the reflected-speed ratio and the pressure and shear coefficients (drag derived), with structural tests | T-00 | S | in progress (template; user writing) | D-28, D-38, D-39, D-50, D-52, D-55. V0 |
 | A2 | Independent checks of the plate: Bird / Dey sphere by quadrature; Dey eq. 2.3 = Sentman with k = 2/3; Newton and Cook limits as test references | A1 | S | todo | Completes Q-04. V1, V2 |
 | A3 | Geometry: `PanelSet`, primitives (plate, box, cylinder), component descriptions and macro-model tables, materials; STL/OBJ and YAML readers in `io/` | A1 | M | todo | D-41, D-42. trimesh as test oracle. V3 |
-| A4 | Frames: quaternions with explicit conventions, flow direction in the body frame, fixed component poses | A3 | S | todo | D-27, D-42, D-44 |
-| A5 | Integration and the public entry: force and moment vectors, drag, lift, side force, Cd·A, B(t), averaging; batch over epochs | A4 | M | todo | D-21, D-39. The workflow `drag_area_from_attitude` comes with it (W1). V2 meshed sphere, V3 |
+| A4 | `frames.py` (`Attitude`, a simple attitude law, `PanelFlowGeometry`, fixed component poses) and `flow_conditions.py` (`AeroAtmosphere`, `FlowConditions`) | A3 | M | todo | D-27, D-42, D-44, D-53. Q-13 first |
+| A5 | Constant `SurfaceInteraction`, `integration.py` and `drag_area.py`: force and moment vectors, drag, lift, side force, Cd·A, B(t), averaging; chunked over epochs, with a timing benchmark | A4 | M | todo | D-21, D-39, D-52, D-54. The workflow `drag_area_from_attitude` comes with it (W1). V2 meshed sphere, V3 |
 | A6 | Shadowing: centroid projection with self-exclusion | A5 | M | todo | Plate-in-front-of-box, L-shape and convex-sphere cases. V3 |
 | A7 | Connect to `AtmosphereState`, with the mixed-model warning | A5, D1 | S | todo | D-10, D-12 |
-| A8 | DRIA: per-species Sentman, mass-weighted | A7 | S | todo | Q-08. V1 |
+| A8 | `gas_surface_dria.py`: per-species Sentman, mass-weighted | A7 | S | todo | D-45. V1 |
 | A9 | Accommodation: constant, and the Walker/Langmuir surface-coverage model | A8 | M | todo | Material surface-atom mass |
-| A10 | CLL plate (σ_n, σ_t), with constant and Walker accommodation | A9 | M | todo | Q-09. V1, V2 |
+| A10 | `gas_surface_cll.py`: CLL plate (σ_n, σ_t), with constant and Walker accommodation | A9 | M | todo | D-46. V1, V2 |
 | A11 | ADBSat comparison: reference numbers from ADBSat or ADBSat-PyVersion, run with explicit speeds | A6, A10 | S | todo | V4 |
 | A12 | Validation: Dey et al. GRACE and C/NOFS values; CHAMP and GRACE with TU Delft geometry, SPARTA tables and accelerometer densities | A11 | L | todo | Q-10. V5, V6 |
 | A13 | Articulated components: hinge-angle series and Sun tracking | A12 | M | todo | D-42 |

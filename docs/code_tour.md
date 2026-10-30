@@ -18,5 +18,6 @@ The skeleton and the main config exist so far (tasks T-00, T-01):
 - `leodragkit/<subpackage>/__init__.py`: one docstring each, saying what the subpackage will hold and what it may import.
 - `tests/test_package.py`: the installation, the `ldk` command, and the import rules D-04 and D-05.
 - `tests/test_config.py`: the main config, one test per rule, each a usage example.
-- `leodragkit/aero/flat_plate.py` (task A1, being written): one flat plate in free-molecular flow. Read `compute_reflected_speed_ratio` (how fast molecules leave the surface), then `compute_sentman_flat_plate_coefficients` (pressure, shear and drag, returned as a `FlatPlateCoefficients`). Method: the drag-coefficient primer, steps 2–3; sign convention D-50; precision note R-03. Step plan and reading list: `docs/plans/A1_flat_plate.md`.
-- `tests/aero/test_flat_plate.py`: structural checks of the plate, plus 50-digit precision references for back faces.
+- `leodragkit/aero/gas_surface.py`: the contract every gas-surface model meets, `FlatPlateCoefficients` (pressure, shear and drag of one-sided plates), with its sign convention (D-50, D-52). Read this before any model.
+- `leodragkit/aero/gas_surface_sentman.py` (task A1, being written): the Sentman model for one plate. Read `compute_reflected_speed_ratio` (how fast molecules leave the surface), then `compute_sentman_flat_plate_coefficients`. Method: the drag-coefficient primer, steps 2–3; precision note R-03. Step plan and reading list: `docs/plans/A1_flat_plate.md`. How the aero modules connect: `docs/aero_plan.md`, section 3a.
+- `tests/aero/test_gas_surface_sentman.py`: structural checks of the plate, plus 50-digit precision references for back faces.
