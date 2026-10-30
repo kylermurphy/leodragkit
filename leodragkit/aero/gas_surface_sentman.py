@@ -101,27 +101,26 @@ def compute_reflected_speed_ratio(
         r = compute_reflected_speed_ratio(7.0, 1000.0, 300.0, energy_accommodation=0.9)
     """
     # 1. Check the inputs with _as_checked_array, and check k is one of the two constants.
-    speed_ratio = _as_checked_array("speed_ratio", speed_ratio, 
+    s = _as_checked_array("speed_ratio", speed_ratio, 
                                     minimum=0.0, minimum_is_allowed=False)
-    ambient_temperature_kelvin = _as_checked_array("ambient_temperature_kelvin",
+    ambient_kelvin = _as_checked_array("ambient_temperature_kelvin",
                                                    ambient_temperature_kelvin,
                                                    minimum=0.0, minimum_is_allowed=False)                                        
-    wall_temperature_kelvin = _as_checked_array("wall_temperature_kelvin",
+    wall_kelvin = _as_checked_array("wall_temperature_kelvin",
                                                 wall_temperature_kelvin, minimum=0.0,
                                                 minimum_is_allowed=False)
-    energy_accommodation = _as_checked_array("energy_accommodation",
+    alpha = _as_checked_array("energy_accommodation",
                                              energy_accommodation,
                                              minimum=0.0, maximum=1.0)
-    
-    if reflected_speed_constant not in (KOPPENWALLNER_REFLECTED_SPEED_CONSTANT, COOK_REFLECTED_SPEED_CONSTANT):
+    k = reflected_speed_constant
+    if k not in (KOPPENWALLNER_REFLECTED_SPEED_CONSTANT, COOK_REFLECTED_SPEED_CONSTANT):
         raise ValueError(f"reflected_speed_constant must be {KOPPENWALLNER_REFLECTED_SPEED_CONSTANT} or "
                          f"{COOK_REFLECTED_SPEED_CONSTANT}, got {reflected_speed_constant!r}.")
     # 2. Incident temperature: T_i = k s² T∞.
-    T_inc = reflected_speed_constant * speed_ratio**2 * ambient_temperature_kelvin 
+    incident_kelvin = k * s**2 * ambient_kelvin
     # 3. Reflected-speed ratio: r = sqrt(k [1 + α (T_w / T_i − 1)]).
-    r = np.sqrt(reflected_speed_constant * (1.0 + energy_accommodation * (wall_temperature_kelvin / T_inc - 1.0)))
-    
-    return r
+    return np.sqrt(k * (1.0 + alpha * (wall_kelvin / incident_kelvin - 1.0)))
+
 
 
 def compute_sentman_flat_plate_coefficients(
@@ -171,29 +170,29 @@ def compute_sentman_flat_plate_coefficients(
         head_on.drag_coefficient
     """
     # 1. Check the inputs; clamp cos δ to [−1, 1] when it overshoots by no more than the tolerance.
-    cos_d = _as_checked_array("cos_incidence_angle", cos_incidence_angle, 
+    cos_delta = _as_checked_array("cos_incidence_angle", cos_incidence_angle, 
                               minimum=-1.0-COS_INCIDENCE_TOLERANCE,
                               maximum=1.0+COS_INCIDENCE_TOLERANCE)
     s = _as_checked_array("speed_ratio", speed_ratio, minimum=0.0, minimum_is_allowed=False)
     r = _as_checked_array("reflected_speed_ratio", reflected_speed_ratio, minimum=0.0)
 
     # clamp cos δ to [−1, 1] when it overshoots by no more than the tolerance
-    cos_d = np.clip(cos_d, -1.0, 1.0)  
+    cos_delta = np.clip(cos_delta, -1.0, 1.0)  
 
     # 2. sin δ from cos δ (δ is in [0, π], so sin δ ≥ 0).
-    sin_d = np.sqrt(1.0 - cos_d**2)
+    sin_delta = np.sqrt(1.0 - cos_delta**2)
 
     # 3. The shared terms E and F, with F from erfc.
-    E = np.exp(-s**2 * cos_d**2)
-    F = erfc(-s * cos_d)
+    E = np.exp(-s**2 * cos_delta**2)
+    F = erfc(-s * cos_delta)
     # 4. Pressure coefficient C_p.
-    c_p = (cos_d**2 + 1.0 / (2.0 * s**2)) * F + cos_d / (s * np.sqrt(np.pi)) * E + \
-          (r / 2.0) * (np.sqrt(np.pi) * cos_d * F + E / s)
+    c_p = (cos_delta**2 + 1.0 / (2.0 * s**2)) * F + cos_delta / (s * np.sqrt(np.pi)) * E + \
+          (r / 2.0) * (np.sqrt(np.pi) * cos_delta * F + E / s)
 
     # 5. Shear coefficient C_τ.
-    c_t = sin_d*cos_d*F + sin_d/(s*np.sqrt(np.pi))*E
+    c_t = sin_delta*cos_delta*F + sin_delta/(s*np.sqrt(np.pi))*E
     # 6. Drag coefficient: the components of C_p and C_τ along the flow.
-    c_d = c_p*cos_d + c_t*sin_d
+    c_d = c_p*cos_delta + c_t*sin_delta
 
     return FlatPlateCoefficients(pressure_coefficient=c_p, shear_coefficient=c_t, drag_coefficient=c_d)
 
