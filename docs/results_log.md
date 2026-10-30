@@ -57,3 +57,19 @@ Each entry gives:
 
   The erfc form agrees with 50 digits to within 4 × 10⁻¹³ relative here; at cos δ = −0.5, 0, 0.5 and 1 (s = 7) to within 3 × 10⁻¹⁵.
 - **What it informed:** A1 computes F with erfc. The s = 7 back-face value in R-01 (3.3 × 10⁻²³) was this rounding error; the sign rule (D-38) and R-01's sphere comparison are unaffected, since these values are far below anything that matters in the integral.
+
+## R-04. Sentman's hyperthermal limit differs from Cook's formula by a fixed factor (2026-10-30)
+
+- **What was run:** an exploration while planning task A2, not a workflow. The user's Sentman code (A1, at commit `3363a66`) was evaluated at α = 0.9, T∞ = 1000 K, T_w = 300 K, k = 2/3, and compared with Cook's hyperthermal formula, Sinpetru et al. (2022a) eq. 18 in its intended form with T_i = (2/3)s²T∞, the kinetic temperature that ADBSat's `coeff_cook.m` uses. The script was not kept; task A2 turns this into tests.
+- **Run folder:** none.
+- **Result:**
+
+  | s | cos δ | Sentman Cd | Cook Cd | ratio of the re-emission terms |
+  |---|---|---|---|---|
+  | 7 | 1 | 2.49659 | 2.43872 | 1.1319 |
+  | 30 | 1 | 2.45979 | 2.42258 | 1.0880 |
+  | 1000 | 1 | 2.45765 | 2.42164 | 1.0854 |
+  | 1000 | 0.5 | 1.11441 | 1.10541 | 1.0854 |
+
+  The limit, 1.0854, equals 3√(πk)/4 with k = 2/3 (derived: Sentman tends to 2cos δ + √π·r·cos²δ; Cook is 2cos δ + (4/3)√(1 + α(T_w/T_i − 1))·cos²δ). For k = 1/2 the factor is 0.940 when α < 1. At α = 1 both models re-emit at the wall temperature and the factor is 1.0854 for either k.
+- **What it informed:** the corrected hyperthermal-limit statement in the primer and `docs/aero_plan.md`; the A2 tests. The ADBSat paper's statement that Sentman converges to Cook holds for the form, not the value.

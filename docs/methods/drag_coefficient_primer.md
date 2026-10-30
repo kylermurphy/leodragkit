@@ -167,7 +167,7 @@ Structural tests that need no reference numbers:
 
 - **Single panel.** A single-panel plate summed through step 4 equals the closed form to machine precision. ADBSat's verification shows panel versus closed form within 0.1% (Sinpetru et al. 2022b).
 - **Sphere.** A finely meshed sphere converges to Bird's formula. An integral of the plate formula over the sphere already matches it to six decimals for s from 0.5 to 10 (R-01).
-- **Hyperthermal limit.** As s → ∞, Sentman approaches Cook's hyperthermal formula (Sinpetru et al. 2022a, eq. 18). With no re-emission as well (r = 0), the pressure coefficient reduces to Newton's C_p = 2cos²δ (eq. 20), and the drag coefficient to **2cos δ**, because the shear term adds 2sin²δ cos δ. Eq. 18 gives the same 2cos δ when its re-emission term is removed.
+- **Hyperthermal limit.** As s → ∞, Sentman's drag tends to 2cos δ + √π·r·cos²δ. That has the form of Cook's hyperthermal formula (Sinpetru et al. 2022a, eq. 18), 2cos δ + (4/3)√(1 + α(T_w/T_i − 1))·cos²δ, but not its value: for α < 1 the re-emission terms differ by the fixed factor 3√(πk)/4 (1.085 for k = 2/3, 0.940 for k = 1/2), because Sentman re-emits a Maxwellian gas and Cook re-emits every molecule at one speed in a cosine spray (R-04). Eq. 18 is printed with the same bracket typo as eq. 6, and its T_inf is the incident kinetic temperature, mV²/(3k_B). With no re-emission (r = 0), the pressure coefficient reduces to Newton's C_p = 2cos²δ (eq. 20), and the drag coefficient to **2cos δ**, because the shear term adds 2sin²δ cos δ. Eq. 18 gives the same 2cos δ when its re-emission term is removed.
 - **Back faces.** A back-facing plate gives a small negative c_d, negligible at s = 7 and growing in size as s falls.
 - **Symmetry.** Rotating a cube by any attitude and summing gives a smooth, symmetric Cd·A; a 180° yaw of a symmetric 3U leaves Cd·A unchanged.
 - **ADBSat.** Compare with ADBSat itself for the same mesh and inputs, once a real geometry exists.
@@ -227,6 +227,7 @@ Every DOI above was resolved through Crossref, and its title, authors, venue and
 ## Changes from the planning version
 
 - **Hyperthermal limit corrected.** The planning version said drag approaches Newton's 2cos³δ. Drag approaches 2cos δ; only the pressure coefficient approaches 2cos²δ. Sinpetru et al. 2022a, eq. 18, gives 2cos δ.
+- **Hyperthermal limit corrected** (2026-10-30). The planning version said Sentman approaches Cook's formula; it approaches Cook's form with a different re-emission term (R-04).
 - **Back-face sign corrected.** The planning version said a back-facing plate gives a non-negative c_d. It is small and negative (R-01). The value at s = 7 first quoted here (3 × 10⁻²³) was a rounding error of the 1 + erf form; corrected 2026-10-29 (R-03).
 - **Citations.** The Moe & Moe link to an unofficial mirror is replaced by its DOI. Links are now DOIs, with the preprints read listed alongside.
 - **Other changes:**

@@ -131,7 +131,7 @@ All are frozen dataclasses, except the exposure mask, which is a boolean array. 
 | Sentman | Sinpetru et al. 2022a, eqs. 6–7 (primer, steps 2–3) | cos δ, s, r from α, T_w, T∞ | One mean molecular mass. k = 1/2 by default (D-45) |
 | DRIA | the same plate per species, mass-weighted (Mehta et al. 2023, eq. 11; Dey et al. 2025a, eqs. 2.3–2.4) | as Sentman, per species | k = 2/3, as published (D-45) |
 | CLL | Storch 2002, eq. 3.9 and §3.2.2 (one-sided plate force); drag form in Dey et al. 2025a, eq. 2.7 | cos δ, s, σ_n, σ_t, T_w, T∞ | σ_n = σ_t = 1 is diffuse; 0 is specular. σ_n from Walker eq. 27 (D-46) |
-| Newton, Cook | Sinpetru et al. 2022a, eqs. 18, 20–21 | | Tests only: hyperthermal limits |
+| Newton, Cook | Sinpetru et al. 2022a, eqs. 18, 20–21 | | Tests only. Newton is Sentman's r = 0 limit; Cook has the form of Sentman's hyperthermal limit, with a re-emission term smaller by 3√(πk)/4 (R-04) |
 
 Two identities hold to machine precision and become tests (R-02): Dey's DRIA plate (eq. 2.3) equals our Sentman form with k = 2/3, and at full accommodation it equals the CLL plate (eq. 2.7) with σ_n = σ_t = 1.
 
@@ -193,7 +193,7 @@ Software verification ("did we implement the equations?") comes before physical 
 | Rung | Check | Reference | Task |
 | --- | --- | --- | --- |
 | V0 | Structural properties of the plate | limits, signs, broadcasting | A1 |
-| V1 | Plate identities | Dey eq. 2.3 = Sentman with k = 2/3; DRIA(α = 1) = CLL(1, 1); Newton and Cook limits | A2, A8, A10 |
+| V1 | Plate identities | Dey eq. 2.3 = Sentman with k = 2/3; DRIA(α = 1) = CLL(1, 1); Sentman's hyperthermal limit, and its fixed difference from Cook | A2, A8, A10 |
 | V2 | Sphere | Bird / Dey eq. 2.5 (DRIA), Dey eq. 2.8 (CLL), by quadrature and by meshed spheres | A2, A5, A10 |
 | V3 | Boxes, plates in front of boxes, L-shapes | hand calculation; trimesh areas, normals and ray hits | A3, A5, A6 |
 | V4 | ADBSat | MATLAB ADBSat or ADBSat-PyVersion, run with explicit speeds, for plate, cube and sphere and each model | A11 |
