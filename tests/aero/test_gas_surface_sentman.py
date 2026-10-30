@@ -25,11 +25,19 @@ AMBIENT_TEMPERATURE_KELVIN = 1000.0
 WALL_TEMPERATURE_KELVIN = 300.0
 
 
-def reflected_speed_ratio_for(energy_accommodation, reflected_speed_constant=KOPPENWALLNER_REFLECTED_SPEED_CONSTANT,
-                              speed_ratio=SPEED_RATIO):
+def reflected_speed_ratio_for(
+    energy_accommodation,
+    reflected_speed_constant=KOPPENWALLNER_REFLECTED_SPEED_CONSTANT,
+    speed_ratio=SPEED_RATIO,
+):
     """r at the typical conditions above, for the given accommodation, constant and speed ratio."""
-    return compute_reflected_speed_ratio(speed_ratio, AMBIENT_TEMPERATURE_KELVIN, WALL_TEMPERATURE_KELVIN,
-                                         energy_accommodation, reflected_speed_constant)
+    return compute_reflected_speed_ratio(
+        speed_ratio,
+        AMBIENT_TEMPERATURE_KELVIN,
+        WALL_TEMPERATURE_KELVIN,
+        energy_accommodation,
+        reflected_speed_constant,
+    )
 
 
 def plate(cos_incidence_angle, speed_ratio=SPEED_RATIO, reflected_speed_ratio=None):
@@ -41,6 +49,7 @@ def plate(cos_incidence_angle, speed_ratio=SPEED_RATIO, reflected_speed_ratio=No
 
 # --- Step 2: the reflected-speed ratio ----------------------------------------------------------
 
+
 def test_at_full_accommodation_both_constants_give_the_wall_temperature_ratio():
     expected = np.sqrt(WALL_TEMPERATURE_KELVIN / (SPEED_RATIO**2 * AMBIENT_TEMPERATURE_KELVIN))
     for constant in (KOPPENWALLNER_REFLECTED_SPEED_CONSTANT, COOK_REFLECTED_SPEED_CONSTANT):
@@ -48,8 +57,12 @@ def test_at_full_accommodation_both_constants_give_the_wall_temperature_ratio():
 
 
 def test_the_default_constant_is_koppenwallner():
-    default = compute_reflected_speed_ratio(SPEED_RATIO, AMBIENT_TEMPERATURE_KELVIN, WALL_TEMPERATURE_KELVIN, 0.9)
-    assert default == pytest.approx(reflected_speed_ratio_for(0.9, KOPPENWALLNER_REFLECTED_SPEED_CONSTANT), rel=1e-15)
+    default = compute_reflected_speed_ratio(
+        SPEED_RATIO, AMBIENT_TEMPERATURE_KELVIN, WALL_TEMPERATURE_KELVIN, 0.9
+    )
+    assert default == pytest.approx(
+        reflected_speed_ratio_for(0.9, KOPPENWALLNER_REFLECTED_SPEED_CONSTANT), rel=1e-15
+    )
 
 
 def test_less_accommodation_means_faster_reemission():
@@ -59,10 +72,15 @@ def test_less_accommodation_means_faster_reemission():
 
 # --- Step 3: the plate's coefficients -----------------------------------------------------------
 
+
 def test_the_result_holds_all_three_coefficients_as_arrays():
     coefficients = plate(np.array([1.0, 0.5]))
     assert isinstance(coefficients, FlatPlateCoefficients)
-    for values in (coefficients.pressure_coefficient, coefficients.shear_coefficient, coefficients.drag_coefficient):
+    for values in (
+        coefficients.pressure_coefficient,
+        coefficients.shear_coefficient,
+        coefficients.drag_coefficient,
+    ):
         assert isinstance(values, np.ndarray) and values.shape == (2,)
 
 
@@ -72,8 +90,10 @@ def test_drag_is_the_flow_component_of_pressure_and_shear():
     sin_incidence_angle = np.sqrt(1.0 - cos_incidence_angle**2)
     np.testing.assert_allclose(
         coefficients.drag_coefficient,
-        coefficients.pressure_coefficient * cos_incidence_angle + coefficients.shear_coefficient * sin_incidence_angle,
-        rtol=1e-14, atol=1e-300,
+        coefficients.pressure_coefficient * cos_incidence_angle
+        + coefficients.shear_coefficient * sin_incidence_angle,
+        rtol=1e-14,
+        atol=1e-300,
     )
 
 
@@ -82,13 +102,17 @@ def test_a_head_on_plate_has_no_shear():
 
 
 def test_at_full_accommodation_head_on_drag_does_not_depend_on_the_constant():
-    drags = [plate(1.0, reflected_speed_ratio=reflected_speed_ratio_for(1.0, constant)).drag_coefficient
-             for constant in (KOPPENWALLNER_REFLECTED_SPEED_CONSTANT, COOK_REFLECTED_SPEED_CONSTANT)]
+    drags = [
+        plate(1.0, reflected_speed_ratio=reflected_speed_ratio_for(1.0, constant)).drag_coefficient
+        for constant in (KOPPENWALLNER_REFLECTED_SPEED_CONSTANT, COOK_REFLECTED_SPEED_CONSTANT)
+    ]
     assert drags[0] == pytest.approx(drags[1], rel=1e-12)
 
 
 def test_head_on_drag_grows_as_accommodation_falls():
-    drag = plate(1.0, reflected_speed_ratio=reflected_speed_ratio_for(np.array([1.0, 0.9, 0.0]))).drag_coefficient
+    drag = plate(
+        1.0, reflected_speed_ratio=reflected_speed_ratio_for(np.array([1.0, 0.9, 0.0]))
+    ).drag_coefficient
     assert np.all(np.diff(drag) > 0)
 
 
@@ -99,8 +123,9 @@ def test_hyperthermal_limit_without_reemission():
     sin_incidence_angle = np.sin(np.radians([0.0, 30.0, 60.0, 85.0]))
     coefficients = plate(cos_incidence_angle, speed_ratio=1e4, reflected_speed_ratio=0.0)
     np.testing.assert_allclose(coefficients.pressure_coefficient, 2.0 * cos_incidence_angle**2, rtol=1e-6)
-    np.testing.assert_allclose(coefficients.shear_coefficient, 2.0 * sin_incidence_angle * cos_incidence_angle,
-                               rtol=1e-6, atol=1e-15)
+    np.testing.assert_allclose(
+        coefficients.shear_coefficient, 2.0 * sin_incidence_angle * cos_incidence_angle, rtol=1e-6, atol=1e-15
+    )
     np.testing.assert_allclose(coefficients.drag_coefficient, 2.0 * cos_incidence_angle, rtol=1e-6)
 
 
@@ -134,8 +159,12 @@ def test_inputs_broadcast_and_match_scalar_calls():
     together = plate(cos_incidence_angle)
     one_at_a_time = [plate(c) for c in cos_incidence_angle]
     for field in ("pressure_coefficient", "shear_coefficient", "drag_coefficient"):
-        np.testing.assert_allclose(getattr(together, field), [getattr(single, field) for single in one_at_a_time],
-                                   rtol=1e-15, atol=1e-300)
+        np.testing.assert_allclose(
+            getattr(together, field),
+            [getattr(single, field) for single in one_at_a_time],
+            rtol=1e-15,
+            atol=1e-300,
+        )
 
 
 def test_rounding_just_beyond_one_is_clamped():
@@ -145,6 +174,7 @@ def test_rounding_just_beyond_one_is_clamped():
 
 
 # --- Invalid inputs raise, naming the input -----------------------------------------------------
+
 
 @pytest.mark.parametrize(
     ("arguments", "name"),

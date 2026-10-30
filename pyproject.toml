@@ -43,3 +43,16 @@ markers = [
     "network: needs internet access",
     "slow: takes more than about 30 s",
 ]
+
+[tool.ruff]
+# One formatter and linter for the whole repository (D-57). Run before every report:
+#   ruff format .
+#   ruff check .
+line-length = 110
+target-version = "py312"
+# Markdown is left alone: code examples in the docs keep their hand alignment.
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+# pycodestyle errors and warnings, pyflakes, and import sorting.
+select = ["E", "W", "F", "I"]

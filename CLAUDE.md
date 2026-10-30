@@ -33,6 +33,7 @@ The user wants to read and understand every change. Speed is not a goal; clarity
 4. **Explain, then wait.** After implementing, report (format at the end of this file) and stop. The user reads the code before the next step.
 5. **One change at a time.** No parallel subagents. Read-only subagents run only when the plan names them; the `step-implementer` runs only on a plan the user has approved (see "Subagents").
 6. **Never claim what you did not check.** Paste real test output. Say "not run" when something was not run.
+7. **Format and lint before every report:** `ruff format .` then `ruff check .`; both must pass (D-57).
 
 ### Who writes the code
 
@@ -80,7 +81,7 @@ A step can mix modes; the plan says which function is whose.
 
 ## Dependencies
 
-Approved: the standard library, `numpy`, `pandas`, `scipy`, `pyyaml`, `requests`, `pyarrow`, `orekit_jpype`, `pymsis`, `matplotlib`, `pytest`; the separate density-model package once it exists (D-11). One install, no optional extras (D-06).
+Approved: the standard library, `numpy`, `pandas`, `scipy`, `pyyaml`, `requests`, `pyarrow`, `orekit_jpype`, `pymsis`, `matplotlib`, `pytest`, `ruff` (formatting and linting, D-57); the separate density-model package once it exists (D-11). One install, no optional extras (D-06).
 
 Ask before adding anything else. Pin versions in `environment.yml`.
 

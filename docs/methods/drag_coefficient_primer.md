@@ -139,7 +139,7 @@ Each of these can change Cd·A by percent-level amounts or more, so each one is 
 | Panel-method limits | Concave features, faces parallel to the flow, multiple reflections | ADBSat's verification adopts an error interval of up to 3% (Sinpetru et al. 2022b) | Check against a test-particle code once for a real geometry |
 | ADBSat paper typos | Eq. 6 bracket; eq. 4 lift sign; eq. 28 does not normalise the shear direction | Wrong numbers if copied from the paper | Follow the corrected forms here |
 
-On the last row: the code normalises the shear direction after computing it as in eq. 28 (`calc_coeff.m`). The eq. 4 lift-sign typo is the planning version's reading and was not rechecked; lift is not computed here.
+On the last row: the code normalises the shear direction after computing it as in eq. 28 (`calc_coeff.m`). The eq. 4 lift-sign typo is confirmed: the printed matrix taking (C_p, C_τ) to (C_d, C_l) lacks the −cos δ of its own inverse, eq. 5, which is printed just below it. Lift is not computed here.
 
 ## Verification cases for unit tests
 
@@ -215,7 +215,7 @@ Every DOI above was resolved through Crossref, and its title, authors, venue and
 
 | Source | Rechecked | Not rechecked |
 | --- | --- | --- |
-| Sinpetru et al. 2022a (preprint v2) | eqs. 2, 6–7 (and the eq. 6 bracket typo), 18, 20–21, 25, 26, 28; reference area of half the mesh surface | eq. 4 lift sign |
+| Sinpetru et al. 2022a (preprint v2) | eqs. 2, 6–7, 18, 20–21, 25, 26, 28; reference area of half the mesh surface. Rechecked 2026-10-30 on the rendered page: eq. 6 prints the re-emission factor as α_E T_w/(T_i − 1) with 2/3 inside the root, and `coeff_sentman.m` (line 67) uses α(T_w/T_i − 1) with 1/2; eq. 4 lacks the −cos δ of eq. 5 | |
 | ADBSat code (master branch) | GPL-3.0 licence; k = 1/2 and T_i = ½ s² T∞ in `coeff_sentman.m`; the shear direction normalised and the force sum signed in `calc_coeff.m` | |
 | Parham & Barba (arXiv version) | eq. 4, Bird's sphere drag; presented at the AIAA conference of the DOI | equation numbering in the AIAA version |
 | Moe & Moe 2005 | α from about 1.00 near 200 km to about 0.86 near 300 km | eq. 4 (equations not extractable from the copy read) |

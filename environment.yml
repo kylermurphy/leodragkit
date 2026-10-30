@@ -19,6 +19,7 @@ dependencies:
   - ipykernel
   - jupyterlab
   - pytest
+  - ruff            # formatter and linter (D-57); configured in pyproject.toml
   - pip
   - pip:
       - orekit_jpype==13.1.4.0

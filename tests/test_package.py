@@ -47,9 +47,10 @@ def test_importing_leodragkit_does_not_start_the_jvm():
 
 def test_aero_loads_no_heavy_dependency_and_no_other_leodragkit_subpackage():
     loaded = modules_loaded_by_import("leodragkit.aero")
-    assert top_level_names(loaded).isdisjoint(HEAVY_DEPENDENCIES), top_level_names(loaded) & HEAVY_DEPENDENCIES
+    assert top_level_names(loaded).isdisjoint(HEAVY_DEPENDENCIES), (
+        top_level_names(loaded) & HEAVY_DEPENDENCIES
+    )
     other_leodragkit_modules = {
-        name for name in loaded
-        if name.startswith("leodragkit.") and not name.startswith("leodragkit.aero")
+        name for name in loaded if name.startswith("leodragkit.") and not name.startswith("leodragkit.aero")
     }
     assert other_leodragkit_modules == set(), other_leodragkit_modules

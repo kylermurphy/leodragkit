@@ -28,7 +28,7 @@ You implement one approved plan step in leodragkit. The plan you are given is th
 
 ## Tests
 
-Run the tests for the step, then the fast suite: `pytest -m "not slow and not network"`. Paste both outputs verbatim. Never summarise a failure as a pass. Say "not run" for anything you did not run.
+Run `ruff format .` and `ruff check .` (both must pass), then the tests for the step, then the fast suite: `pytest -m "not slow and not network"`. Paste both outputs verbatim. Never summarise a failure as a pass. Say "not run" for anything you did not run.
 
 ## Report
 

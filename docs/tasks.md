@@ -25,7 +25,7 @@ Plan and module layout: `docs/aero_plan.md`. Validation rungs V0–V7 are define
 
 | ID | Task | Depends on | Size | Status | Notes |
 |---|---|---|---|---|---|
-| A1 | `aero/gas_surface.py` (the contract) and `aero/gas_surface_sentman.py`: Sentman plate, returning the reflected-speed ratio and the pressure and shear coefficients (drag derived), with structural tests | T-00 | S | in progress (template; user writing) | D-28, D-38, D-39, D-50, D-52, D-55. V0 |
+| A1 | `aero/gas_surface.py` (the contract) and `aero/gas_surface_sentman.py`: Sentman plate, returning the reflected-speed ratio and the pressure and shear coefficients (drag derived), with structural tests | T-00 | S | done (2026-10-30) | D-28, D-38, D-39, D-50, D-52, D-55. V0. Written by the user from the template |
 | A2 | Independent checks of the plate: Bird / Dey sphere by quadrature; Dey eq. 2.3 = Sentman with k = 2/3; Newton and Cook limits as test references | A1 | S | todo | Completes Q-04. V1, V2 |
 | A3 | Geometry: `PanelSet`, primitives (plate, box, cylinder), component descriptions and macro-model tables, materials; STL/OBJ and YAML readers in `io/` | A1 | M | todo | D-41, D-42. trimesh as test oracle. V3 |
 | A4 | `frames.py` (`Attitude`, a simple attitude law, `PanelFlowGeometry`, fixed component poses) and `flow_conditions.py` (`AeroAtmosphere`, `FlowConditions`) | A3 | M | todo | D-27, D-42, D-44, D-53. Q-13 first |

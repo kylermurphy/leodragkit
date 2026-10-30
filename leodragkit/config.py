@@ -92,14 +92,21 @@ def load_main_config(path: str | Path | None = None) -> MainConfig:
     tles = _require_absolute(raw_directories["tles"], "data_directories.tles", config_path)
     orekit_data = None  # null in the file: Orekit data comes from the orekit-data pip package
     if raw_directories["orekit_data"] is not None:
-        orekit_data = _require_absolute(raw_directories["orekit_data"], "data_directories.orekit_data", config_path)
+        orekit_data = _require_absolute(
+            raw_directories["orekit_data"], "data_directories.orekit_data", config_path
+        )
         # An Orekit data folder must already hold its files: an empty new folder would only fail later.
         if not orekit_data.is_dir():
-            raise ConfigError(f"{config_path}: 'data_directories.orekit_data' is not an existing folder: "
-                              f"{orekit_data}. Fix the path, or set it to null to use the orekit-data pip package.")
+            raise ConfigError(
+                f"{config_path}: 'data_directories.orekit_data' is not an existing folder: "
+                f"{orekit_data}. Fix the path, or set it to null to use the orekit-data pip package."
+            )
     # The directories leodragkit may create; none of them may name an existing file.
-    creatable = {"output_directory": output_directory, "data_directories.geometry": geometry,
-                 "data_directories.tles": tles}
+    creatable = {
+        "output_directory": output_directory,
+        "data_directories.geometry": geometry,
+        "data_directories.tles": tles,
+    }
     for key, path in creatable.items():
         if path.exists() and not path.is_dir():
             raise ConfigError(f"{config_path}: '{key}' is a file, not a directory: {path}")
@@ -119,7 +126,9 @@ def load_main_config(path: str | Path | None = None) -> MainConfig:
     )
 
 
-def create_main_config(data_root: str | Path, output_directory: str | Path, path: str | Path | None = None) -> Path:
+def create_main_config(
+    data_root: str | Path, output_directory: str | Path, path: str | Path | None = None
+) -> Path:
     """Write a new main config with each data directory set to ``<data_root>/<source>``.
 
     Edit the file afterwards to point any source at data you already have. ``orekit_data`` is
@@ -163,7 +172,10 @@ def create_main_config(data_root: str | Path, output_directory: str | Path, path
 
 
 def _read_yaml_mapping(config_path: Path) -> dict:
-    """Return the YAML mapping in ``config_path``; raise ConfigError if missing, malformed or not a mapping."""
+    """Return the YAML mapping in ``config_path``.
+
+    Raises ConfigError if the file is missing, malformed or not a mapping.
+    """
     if not config_path.is_file():
         raise ConfigError(
             f"No config file at {config_path}. Create one with "
@@ -187,7 +199,8 @@ def _check_keys(raw: dict, expected_keys: set[str], config_path: Path, section: 
         raise ConfigError(f"{config_path}: {section} is missing {sorted(missing_keys)}.")
     if unknown_keys:
         raise ConfigError(
-            f"{config_path}: {section} has unknown keys {sorted(unknown_keys)}; allowed: {sorted(expected_keys)}."
+            f"{config_path}: {section} has unknown keys {sorted(unknown_keys)}; "
+            f"allowed: {sorted(expected_keys)}."
         )
 
 
@@ -197,5 +210,7 @@ def _require_absolute(value: object, key: str, config_path: Path) -> Path:
         raise ConfigError(f"{config_path}: '{key}' must be a path, got {value!r}.")
     path = Path(value).expanduser()
     if not path.is_absolute():
-        raise ConfigError(f"{config_path}: '{key}' must be an absolute path (or start with ~), got '{value}'.")
+        raise ConfigError(
+            f"{config_path}: '{key}' must be an absolute path (or start with ~), got '{value}'."
+        )
     return path

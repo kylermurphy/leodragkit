@@ -1,5 +1,7 @@
 # A1: Sentman flat plate (pressure, shear, drag)
 
+**Status: done 2026-10-30.** All 55 tests pass; physics written by the user, reviewed against the plan.
+
 Step plan for task A1 in `docs/tasks.md`: what to read, what to write, in what order, and how to know it is done. Mode: the user writes the physics; Claude wrote the templates, tests and documentation.
 
 ## Goal

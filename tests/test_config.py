@@ -60,7 +60,9 @@ def test_missing_directories_are_created_with_a_warning_each(tmp_path):
 
 
 def test_an_invalid_config_creates_no_directories(tmp_path):
-    config_path = write_main_config(tmp_path, data_directories={"orekit_data": str(tmp_path / "no-orekit-data")})
+    config_path = write_main_config(
+        tmp_path, data_directories={"orekit_data": str(tmp_path / "no-orekit-data")}
+    )
     with pytest.raises(ConfigError, match="not an existing folder"):
         load_main_config(config_path)
     assert not (tmp_path / "outputs").exists() and not (tmp_path / "data").exists()
@@ -90,7 +92,9 @@ def test_an_existing_orekit_data_folder_is_used(tmp_path):
     orekit_folder = tmp_path / "orekit-data"
     orekit_folder.mkdir()
     with pytest.warns(UserWarning):
-        main_config = load_main_config(write_main_config(tmp_path, data_directories={"orekit_data": str(orekit_folder)}))
+        main_config = load_main_config(
+            write_main_config(tmp_path, data_directories={"orekit_data": str(orekit_folder)})
+        )
     assert main_config.data_directories.orekit_data == orekit_folder
 
 
@@ -102,7 +106,7 @@ def test_an_existing_orekit_data_folder_is_used(tmp_path):
         ({"data_directories": {"tle": "/x"}}, "unknown keys \\['tle'\\]"),
         ({"output_directory": "relative/outputs"}, "must be an absolute path"),
         ({"output_directory": None}, "must be a path"),
-                ({"data_directories": "/data"}, "must be a mapping"),
+        ({"data_directories": "/data"}, "must be a mapping"),
     ],
 )
 def test_invalid_configs_raise_naming_the_problem(tmp_path, changes, message):
@@ -131,13 +135,16 @@ def test_a_path_that_names_a_file_is_rejected(tmp_path):
 
 
 def test_create_main_config_writes_a_file_that_loads_back(tmp_path):
-    config_path = create_main_config(tmp_path / "data", tmp_path / "outputs", path=tmp_path / "main_config.yaml")
+    config_path = create_main_config(
+        tmp_path / "data", tmp_path / "outputs", path=tmp_path / "main_config.yaml"
+    )
     with pytest.warns(UserWarning):
         main_config = load_main_config(config_path)
     assert main_config == MainConfig(
         output_directory=tmp_path / "outputs",
-        data_directories=DataDirectories(geometry=tmp_path / "data" / "geometry", tles=tmp_path / "data" / "tles",
-                                         orekit_data=None),
+        data_directories=DataDirectories(
+            geometry=tmp_path / "data" / "geometry", tles=tmp_path / "data" / "tles", orekit_data=None
+        ),
         source_file=config_path.resolve(),
     )
 

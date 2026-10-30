@@ -148,6 +148,8 @@ Rejected: swift_reentry's parallel implementers in separate worktrees, and its `
 
 **D-56. `PanelSet` holds triangles wherever vertices are known (meshes and primitives); macro models are vertex-free panels; primitives take a maximum edge length.** User, 2026-10-29. Force and drag need only one normal and area per flat face, so triangles add nothing there. Shadowing needs a point-in-shape test and resolution, because each face is wholly lit or wholly shadowed; one shape type keeps that test uniform. Macro models support force, and moments when centroids are given, but not shadowing, and their results say so.
 
+**D-57. ruff formats and lints the repository: line length 110, rules E, W, F and I (pycodestyle, pyflakes, import order), Markdown excluded; `ruff format .` and `ruff check .` run before every report.** User, 2026-10-30. Added to the approved dependencies and to `environment.yml`, configured in `pyproject.toml`. The first run reformatted the existing code mechanically; no logic changed, and the tests passed before and after. Markdown is excluded so hand-aligned examples in the docs are kept.
+
 ## Licence
 
 **D-32. leodragkit is released under the MIT licence.** User, 2026-10-27. This is compatible with D-28: the aero code is written from the published equations, and ADBSat's GPL-3 code is used only as a test oracle, never copied or translated.
