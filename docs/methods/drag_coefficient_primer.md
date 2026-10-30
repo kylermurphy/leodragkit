@@ -38,7 +38,7 @@ Symbols: V is the satellite speed relative to the co-rotating atmosphere (D-25),
 
 The most probable thermal speed sets the scale (March et al. 2021, eq. 1):
 
-```latex
+```math
 s = \frac{V}{\sqrt{2 k_B T_\infty / m}}
 ```
 
@@ -48,13 +48,13 @@ Use the most probable speed, not the rms or mean speed. With a gas mixture, ADBS
 
 Accommodation is defined on energies (Sinpetru et al. 2022a, eq. 2):
 
-```latex
+```math
 \alpha = \frac{E_i - E_r}{E_i - E_w}
 ```
 
 This becomes a ratio r of re-emitted to incoming speed. Two conventions exist, differing by a constant k and the definition of the incident temperature T_i:
 
-```latex
+```math
 r = \frac{V_r}{V_i} = \sqrt{k\left[1 + \alpha\left(\frac{T_w}{T_i} - 1\right)\right]}
 ```
 
@@ -71,17 +71,17 @@ Let δ be the angle between the oncoming flow and the plate's **outward** normal
 
 Pressure and shear coefficients, referenced to the plate's own area (Sinpetru et al. 2022a, eqs. 6–7, written with r from step 2):
 
-```latex
+```math
 C_p = \left(\cos^2\delta + \frac{1}{2s^2}\right)\left[1 + \mathrm{erf}(s\cos\delta)\right] + \frac{\cos\delta}{s\sqrt{\pi}}e^{-s^2\cos^2\delta} + \frac{r}{2}\left[\sqrt{\pi}\cos\delta\left(1 + \mathrm{erf}(s\cos\delta)\right) + \frac{1}{s}e^{-s^2\cos^2\delta}\right]
 ```
 
-```latex
+```math
 C_\tau = \sin\delta\cos\delta\left[1 + \mathrm{erf}(s\cos\delta)\right] + \frac{\sin\delta}{s\sqrt{\pi}}e^{-s^2\cos^2\delta}
 ```
 
 The plate's drag coefficient is their component along the flow:
 
-```latex
+```math
 c_d = C_p\cos\delta + C_\tau\sin\delta
 ```
 
@@ -93,7 +93,7 @@ Moe & Moe (2005, eq. 4) give the same drag coefficient in a compact form, a usef
 
 Rotate each body-frame normal with the quaternion, compute its δ, and sum the plate drags weighted by panel area, with shadowed panels set to zero (Sinpetru et al. 2022a, eq. 26):
 
-```latex
+```math
 \cos\delta_i(t) = \big(R(q(t))\,\hat n_i^{\,body}\big)\cdot\hat v(t), \qquad (C_dA)(t) = \sum_i A_i\, c_{d,i}(t)\,\big(1 - \mathrm{shadow}_i(t)\big), \qquad B(t) = \frac{(C_dA)(t)}{m_{sat}}
 ```
 
@@ -105,7 +105,7 @@ Store Cd·A rather than Cd: Cd alone is meaningless without its reference area, 
 
 The exact treatment computes Cd per species with its own speed ratio and mass-weights the result (Mehta et al. 2023, eq. 11):
 
-```latex
+```math
 C_D = \frac{\sum_k \chi_k m_k C_{D,k}}{\sum_k \chi_k m_k}, \qquad \chi_k = \frac{n_k}{\sum_j n_j}
 ```
 
@@ -115,7 +115,7 @@ Number densities n_k and T∞ come from leodragkit's `AtmosphereState` (D-10). S
 
 Adsorbed atomic oxygen raises α. The standard model treats the fraction θ of the surface covered by oxygen as a Langmuir isotherm, and blends clean and covered surfaces (Mehta et al. 2023, eqs. 6–7, 13–14):
 
-```latex
+```math
 \theta = \frac{k_L P_O}{1 + k_L P_O}, \qquad P_O = n_O k_B T_\infty, \qquad C_D = (1-\theta)\,C_{D,s} + \theta\,C_{D,ads}
 ```
 
