@@ -42,8 +42,12 @@ from scipy.special import erfc
 from leodragkit.aero.gas_surface import FlatPlateCoefficients
 
 # The two conventions for the reflected-speed constant k. Sentman uses 1/2 by default; DRIA uses 2/3.
-KOPPENWALLNER_REFLECTED_SPEED_CONSTANT = 0.5  # ADBSat's code; the Sentman default, for comparison
-COOK_REFLECTED_SPEED_CONSTANT = 2.0 / 3.0  # used by Cook, Moe & Moe, and the published DRIA
+KOPPENWALLNER_REFLECTED_SPEED_CONSTANT = (
+    0.5  # ADBSat's code; the Sentman default, for comparison
+)
+COOK_REFLECTED_SPEED_CONSTANT = (
+    2.0 / 3.0
+)  # used by Cook, Moe & Moe, and the published DRIA
 
 # Dot products of unit vectors can overshoot ±1 by rounding (about 1e-16). Values within this
 # tolerance are clamped to ±1; anything further out is an error in the caller's geometry.
@@ -101,14 +105,24 @@ def compute_reflected_speed_ratio(
         r = compute_reflected_speed_ratio(7.0, 1000.0, 300.0, energy_accommodation=0.9)
     """
     # 1. Check the inputs with _as_checked_array, and check k is one of the two constants.
-    s = _as_checked_array("speed_ratio", speed_ratio, minimum=0.0, minimum_is_allowed=False)
+    s = _as_checked_array(
+        "speed_ratio", speed_ratio, minimum=0.0, minimum_is_allowed=False
+    )
     ambient_kelvin = _as_checked_array(
-        "ambient_temperature_kelvin", ambient_temperature_kelvin, minimum=0.0, minimum_is_allowed=False
+        "ambient_temperature_kelvin",
+        ambient_temperature_kelvin,
+        minimum=0.0,
+        minimum_is_allowed=False,
     )
     wall_kelvin = _as_checked_array(
-        "wall_temperature_kelvin", wall_temperature_kelvin, minimum=0.0, minimum_is_allowed=False
+        "wall_temperature_kelvin",
+        wall_temperature_kelvin,
+        minimum=0.0,
+        minimum_is_allowed=False,
     )
-    alpha = _as_checked_array("energy_accommodation", energy_accommodation, minimum=0.0, maximum=1.0)
+    alpha = _as_checked_array(
+        "energy_accommodation", energy_accommodation, minimum=0.0, maximum=1.0
+    )
     k = reflected_speed_constant
     if k not in (KOPPENWALLNER_REFLECTED_SPEED_CONSTANT, COOK_REFLECTED_SPEED_CONSTANT):
         raise ValueError(
@@ -174,7 +188,9 @@ def compute_sentman_flat_plate_coefficients(
         minimum=-1.0 - COS_INCIDENCE_TOLERANCE,
         maximum=1.0 + COS_INCIDENCE_TOLERANCE,
     )
-    s = _as_checked_array("speed_ratio", speed_ratio, minimum=0.0, minimum_is_allowed=False)
+    s = _as_checked_array(
+        "speed_ratio", speed_ratio, minimum=0.0, minimum_is_allowed=False
+    )
     r = _as_checked_array("reflected_speed_ratio", reflected_speed_ratio, minimum=0.0)
 
     # clamp cos δ to [−1, 1] when it overshoots by no more than the tolerance
@@ -184,21 +200,23 @@ def compute_sentman_flat_plate_coefficients(
     sin_delta = np.sqrt(1.0 - cos_delta**2)
 
     # 3. The shared terms E and F, with F from erfc.
-    E = np.exp(-(s**2) * cos_delta**2)
-    F = erfc(-s * cos_delta)
+    e_shared = np.exp(-(s**2) * cos_delta**2)
+    f_shared = erfc(-s * cos_delta)
     # 4. Pressure coefficient C_p.
     c_p = (
-        (cos_delta**2 + 1.0 / (2.0 * s**2)) * F
-        + cos_delta / (s * np.sqrt(np.pi)) * E
-        + (r / 2.0) * (np.sqrt(np.pi) * cos_delta * F + E / s)
+        (cos_delta**2 + 1.0 / (2.0 * s**2)) * f_shared
+        + cos_delta / (s * np.sqrt(np.pi)) * e_shared
+        + (r / 2.0) * (np.sqrt(np.pi) * cos_delta * f_shared + e_shared / s)
     )
 
     # 5. Shear coefficient C_τ.
-    c_t = sin_delta * cos_delta * F + sin_delta / (s * np.sqrt(np.pi)) * E
+    c_t = sin_delta * cos_delta * f_shared + sin_delta / (s * np.sqrt(np.pi)) * e_shared
     # 6. Drag coefficient: the components of C_p and C_τ along the flow.
     c_d = c_p * cos_delta + c_t * sin_delta
 
-    return FlatPlateCoefficients(pressure_coefficient=c_p, shear_coefficient=c_t, drag_coefficient=c_d)
+    return FlatPlateCoefficients(
+        pressure_coefficient=c_p, shear_coefficient=c_t, drag_coefficient=c_d
+    )
 
 
 def _as_checked_array(
