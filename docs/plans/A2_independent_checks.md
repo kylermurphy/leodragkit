@@ -1,5 +1,7 @@
 # A2: Independent checks of the Sentman plate
 
+**Status: done 2026-10-30.** All 46 tests pass (101 in the fast suite); reference formulas written by the user, reviewed.
+
 Step plan for task A2 in `docs/tasks.md`. Mode: the user writes the reference formulas from the papers; Claude wrote the tests around them and the documentation.
 
 ## Goal

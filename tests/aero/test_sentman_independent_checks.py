@@ -10,8 +10,8 @@ Run: ``pytest tests/aero/test_sentman_independent_checks.py``
 
 import numpy as np
 import pytest
-from scipy.integrate import quad  # noqa: F401  (used once the reference formulas are written; then remove)
-from scipy.special import erf, erfc  # noqa: F401  (as above)
+from scipy.integrate import quad
+from scipy.special import erf, erfc
 
 from leodragkit.aero.gas_surface_sentman import (
     COOK_REFLECTED_SPEED_CONSTANT,
@@ -47,11 +47,11 @@ def bird_sphere_drag(speed_ratio, wall_speed_ratio):
     # 1. The two terms from the oncoming gas (the exponential and the erf term).
     s = speed_ratio
     sw = wall_speed_ratio
-    exp_s = np.exp(-s**2)
+    exp_s = np.exp(-(s**2))
     erf_s = erf(s)
-    inc_t = exp_s/(np.sqrt(np.pi)*s**3)*(1+2*s**2) + (4*s**4 + 4*s**2 -1)/(2*s**4)*erf_s
+    inc_t = exp_s / (np.sqrt(np.pi) * s**3) * (1 + 2 * s**2) + (4 * s**4 + 4 * s**2 - 1) / (2 * s**4) * erf_s
     # 2. The re-emission term (last term), from the wall speed ratio, 2√π / (3 S_W).
-    reem_t = 2*np.sqrt(np.pi)/(3*sw)
+    reem_t = 2 * np.sqrt(np.pi) / (3 * sw)
 
     return inc_t + reem_t
 
@@ -66,11 +66,12 @@ def dey_reflected_kinetic_temperature_kelvin(
     The second form uses s² = m v² / (2 k_B T∞) (Dey et al., eq. 2.1). T_s is the wall temperature.
     """
     # 1. Incident kinetic temperature T_k,i from the speed ratio.
-    t_ki = (2.0/3.0) * speed_ratio**2 * ambient_temperature_kelvin
+    t_ki = (2.0 / 3.0) * speed_ratio**2 * ambient_temperature_kelvin
     # 2. Blend it with the wall temperature by α.
-    t_kr = t_ki * (1-energy_accommodation) + wall_temperature_kelvin * energy_accommodation
+    t_kr = t_ki * (1 - energy_accommodation) + wall_temperature_kelvin * energy_accommodation
 
     return t_kr
+
 
 def dey_dria_plate_drag(
     cos_incidence_angle, speed_ratio, reflected_kinetic_temperature_kelvin, ambient_temperature_kelvin
@@ -85,15 +86,20 @@ def dey_dria_plate_drag(
     Write 1 + erf(γs) as erfc(−γs): the same quantity, without the loss of digits on back faces.
     """
     # 1. The shared terms: exp(−γ²s²) and 1 + erf(γs), the latter as erfc(−γs).
-    exp_t = np.exp(-cos_incidence_angle**2 * speed_ratio**2)
+    exp_t = np.exp(-(cos_incidence_angle**2) * speed_ratio**2)
     erf_t = erfc(-cos_incidence_angle * speed_ratio)
     # 2. The incoming-gas terms.
-    inc_t = cos_incidence_angle * (1 + 1/(2*speed_ratio**2)) * erf_t + exp_t / (speed_ratio * np.sqrt(np.pi))
+    inc_t = cos_incidence_angle * (1 + 1 / (2 * speed_ratio**2)) * erf_t + exp_t / (
+        speed_ratio * np.sqrt(np.pi)
+    )
     # 3. The re-emission term, from sqrt(T_k,r / T∞).
     t_kr = reflected_kinetic_temperature_kelvin
     t_inf = ambient_temperature_kelvin
-    reem_t = (cos_incidence_angle / (2 * speed_ratio)) * np.sqrt(t_kr/t_inf) * \
-        (cos_incidence_angle * np.sqrt(np.pi) * erf_t + exp_t / speed_ratio)
+    reem_t = (
+        (cos_incidence_angle / (2 * speed_ratio))
+        * np.sqrt(t_kr / t_inf)
+        * (cos_incidence_angle * np.sqrt(np.pi) * erf_t + exp_t / speed_ratio)
+    )
 
     return inc_t + reem_t
 
@@ -110,9 +116,11 @@ def dey_dria_sphere_drag(speed_ratio, reflected_kinetic_temperature_kelvin, ambi
     t_kr = reflected_kinetic_temperature_kelvin
     t_inf = ambient_temperature_kelvin
     # 1. The incoming-gas terms (the same as Bird's).
-    inc_t = (2*s**2+1)/(np.sqrt(np.pi)*s**3)*np.exp(-s**2) + (4*s**4+4*s**2-1)/(2*s**4)*erf(s)
+    inc_t = (2 * s**2 + 1) / (np.sqrt(np.pi) * s**3) * np.exp(-(s**2)) + (4 * s**4 + 4 * s**2 - 1) / (
+        2 * s**4
+    ) * erf(s)
     # 2. The re-emission term, from sqrt(T_k,r / T∞).
-    reem_t = 2*np.sqrt(np.pi)/(3*s) * np.sqrt(t_kr/t_inf)
+    reem_t = 2 * np.sqrt(np.pi) / (3 * s) * np.sqrt(t_kr / t_inf)
 
     return inc_t + reem_t
 
@@ -132,9 +140,9 @@ def cook_hyperthermal_drag(
     t_inc = incident_kinetic_temperature_kelvin
     t_w = wall_temperature_kelvin
     # 1. The re-emission factor sqrt(1 + α (T_w / T_i − 1)).
-    reem_f = (2./3.)*cos_delta*np.sqrt(1+alpha*(t_w/t_inc -1))
+    reem_f = (2.0 / 3.0) * cos_delta * np.sqrt(1 + alpha * (t_w / t_inc - 1))
     # 2. The drag coefficient.
-    return 2*cos_delta*(1 + reem_f)
+    return 2 * cos_delta * (1 + reem_f)
 
 
 def integrate_plate_over_sphere(plate_drag_of_cos):
@@ -150,7 +158,6 @@ def integrate_plate_over_sphere(plate_drag_of_cos):
     integral, error = quad(plate_drag_of_cos, -1, 1, epsabs=1e-12, epsrel=1e-12)
     # 2. Multiply by 2.
     return 2 * integral
-    
 
 
 # --- Shared test conditions and helpers ---------------------------------------------------------
