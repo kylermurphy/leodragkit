@@ -81,7 +81,7 @@ A step can mix modes; the plan says which function is whose.
 
 ## Dependencies
 
-Approved: the standard library, `numpy`, `pandas`, `scipy`, `pyyaml`, `requests`, `pyarrow`, `orekit_jpype`, `pymsis`, `matplotlib`, `pytest`, `ruff` (formatting and linting, D-57); the separate density-model package once it exists (D-11). One install, no optional extras (D-06).
+Approved: the standard library, `numpy`, `pandas`, `scipy`, `pyyaml`, `requests`, `pyarrow`, `orekit_jpype`, `pymsis`, `matplotlib`, `pytest`, `ruff` (formatting and linting, D-57); `plotly`, optional, imported only inside interactive 3-D plot functions (D-62); `trimesh`, in tests only (D-60); the separate density-model package once it exists (D-11). One install, no optional extras (D-06).
 
 Ask before adding anything else. Pin versions in `environment.yml`.
 
@@ -98,9 +98,11 @@ leodragkit/
   orbit/       everything that needs Orekit
   forecast/    ensemble science: driver futures, members, runner, summary
   workflows/   one module per task
+  plots/       figures of leodragkit objects (matplotlib; plotly for interactive 3-D, optional)
 ```
 
 - **Import order:** `io`, `density`, `orbit`, `forecast`, `workflows`, `cli`. A subpackage imports only from those before it (D-03).
+- `plots` imports from the subpackages it draws and is imported by none of them; a plot module that needs Orekit is kept separate, so importing the others never starts the JVM (D-61).
 - `aero` imports only numpy and scipy, and nothing from leodragkit (D-04).
 - All JPype and Orekit code lives in `orbit/` (D-05).
 

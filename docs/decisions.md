@@ -150,6 +150,22 @@ Rejected: swift_reentry's parallel implementers in separate worktrees, and its `
 
 **D-57. ruff formats and lints the repository: line length 110, rules E, W, F and I (pycodestyle, pyflakes, import order), Markdown excluded; `ruff format .` and `ruff check .` run before every report.** User, 2026-10-30. Added to the approved dependencies and to `environment.yml`, configured in `pyproject.toml`. The first run reformatted the existing code mechanically; no logic changed, and the tests passed before and after. Markdown is excluded so hand-aligned examples in the docs are kept.
 
+**D-58. Geometry conventions: outward normals follow counter-clockwise corner order, and a stored STL normal that disagrees raises; component poses are a centre plus x and z axes; reading a mesh requires its length unit.** User, 2026-10-30. One rule for "outward" means a broken file shows up at once. Axis vectors avoid Euler-angle conventions, which have the same silent-failure risk as quaternions. A unit error of 1000 in length is 10⁶ in area, so the unit is never assumed.
+
+**D-59. Materials start minimal (name, wall temperature, energy accommodation); surface-atom mass and the CLL coefficients are added by the tasks that first need them (A9, A10).** User, 2026-10-30.
+
+**D-60. trimesh is a test-only dependency: in `environment.yml`, not in the package's dependencies, and imported with `pytest.importorskip` so the suite still runs without it.** User, 2026-10-30. It is the independent oracle for mesh areas, normals and ray hits (D-41).
+
+**D-61. Plots live in a `leodragkit/plots/` subpackage that imports from the subpackages it draws and is imported by none of them; plot functions take an optional figure or axes, return it, and write no files.** User, 2026-10-30. Keeps `aero` free of plotting libraries (D-04). There are three levels:
+
+1. the spacecraft (A3p);
+2. the spacecraft in the flow (A4–A6);
+3. the spacecraft relative to the Earth (Track B).
+
+**D-62. Interactive 3-D plots use plotly, an optional dependency: listed in `environment.yml`, not in the package's dependencies, imported only inside the functions that need it, which raise a clear error when it is missing; static figures use matplotlib.** User, 2026-10-30. Supersedes D-06 for this one library. plotly draws meshes with WebGL and true depth ordering. In an exploration it built a 20,480-triangle sphere and its HTML in 0.1 s (0.59 MB). matplotlib's 3-D toolkit draws faces back to front, which can misdraw overlaps and slows down for large meshes. plotly is MIT-licensed, with two small dependencies (narwhals, packaging).
+
+**D-63. Macro-model normals whose length is within 10⁻³ of 1 are normalised; anything further off raises.** User, 2026-10-30. Published tables round their normals, often to 4 decimals, so |n̂| can miss 1 by about 10⁻⁴. This is a rounding allowance, like the cos δ clamp, with a named constant (`MACRO_MODEL_NORMAL_LENGTH_TOLERANCE`), not a silent fix. Inside a `PanelSet`, normals are unit vectors to 10⁻⁹, and a set built from triangles must agree with them.
+
 ## Licence
 
 **D-32. leodragkit is released under the MIT licence.** User, 2026-10-27. This is compatible with D-28: the aero code is written from the published equations, and ADBSat's GPL-3 code is used only as a test oracle, never copied or translated.

@@ -27,6 +27,14 @@ paths:
 9. **Composition** comes from an `AtmosphereState` (D-10). When its model differs from the density model, raise `MixedAtmosphereModelWarning` and record both model names (D-12).
 10. **Output** is B(t) as a time series, with optional averaging over one orbit or a chosen window (D-21).
 
+## Geometry conventions
+
+- A triangle's outward normal follows its corner order: counter-clockwise when seen from outside, so n̂ = (v₁ − v₀) × (v₂ − v₀) / |…|. STL files also store a normal per triangle; if it disagrees with the corner order, raise (D-58).
+- Degenerate triangles (zero area) raise; they are never dropped silently.
+- A component's pose in a YAML description is a centre plus the component's x and z axes in the body frame, never Euler angles (D-58).
+- Reading a mesh needs its length unit as a required argument, with no default: STL files carry no units, and CAD exports are often in millimetres (D-58).
+- Materials hold only what a built task uses: name, wall temperature and energy accommodation until A9 and A10 add more (D-59).
+
 ## Quaternions
 
 - The scalar position (first or last) and the frame pair (from body frame to which frame) are required arguments with no defaults. A wrong convention silently turns ram faces into wake faces.

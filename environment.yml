@@ -20,6 +20,8 @@ dependencies:
   - jupyterlab
   - pytest
   - ruff            # formatter and linter (D-57); configured in pyproject.toml
+  - plotly          # optional: interactive 3-D plots only, imported lazily (D-62)
+  - trimesh         # tests only: independent oracle for mesh areas and normals (D-60)
   - pip
   - pip:
       - orekit_jpype==13.1.4.0

@@ -45,6 +45,8 @@ All in `leodragkit/aero/`, one level deep. Gas-surface models share the prefix `
 | `gas_surface_dria.py` | DRIA: the Sentman plate per species, mass-weighted, k = 2/3 | A8 |
 | `gas_surface_cll.py` | CLL: Storch's one-sided plate force | A10 |
 
+Plots of these objects live outside aero, in `leodragkit/plots/` (D-61): the spacecraft first (A3p), then the flow on it (A4–A6), then the spacecraft relative to the Earth (Track B). Interactive 3-D figures use plotly, an optional dependency (D-62).
+
 In `leodragkit/io/`: `mesh_files.py` (STL binary and ASCII, OBJ with polygon faces split into triangles) and `geometry_files.py` (YAML component descriptions and macro-model tables), following the four-function template.
 
 ## 3a. Data flow, types and contracts
@@ -114,7 +116,11 @@ All are frozen dataclasses, except the exposure mask, which is a boolean array. 
 | --- | --- |
 | A1 | `gas_surface.py` (the contract) and `gas_surface_sentman.py` |
 | A2 | checks of the Sentman model |
-| A3 | `PanelSet`, the builder and materials |
+| A3a | `PanelSet` (`geometry.py`) |
+| A3p | the spacecraft plot (`plots/spacecraft.py`), outside aero |
+| A3b | primitives and poses (`geometry_builder.py`) |
+| A3c | materials and YAML component descriptions |
+| A3d | macro-model tables and mesh readers (`io/`) |
 | A4 | `frames.py` (`Attitude`, `PanelFlowGeometry`) and `flow_conditions.py` |
 | A5 | constant `SurfaceInteraction`, `integration.py`, `drag_area.py` with chunking and a timing benchmark, and the workflow |
 | A6 | `shadowing.py` |
