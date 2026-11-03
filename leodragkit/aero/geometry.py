@@ -114,7 +114,9 @@ def compute_triangle_properties(triangle_vertices_m: ArrayLike) -> TrianglePrope
     edge_21 = vertices[:, 2, :] - vertices[:, 1, :]
     # 3. Areas, and the degenerate check: compare each area with its longest edge squared
     #    (all three edges, including v₂ − v₁); raise naming the first bad triangle's index.
-    tri_area = 0.5 * np.linalg.norm(np.cross(edge_10, edge_20), axis=1)
+    cross = np.cross(edge_10, edge_20)
+    cross_length = np.linalg.norm(cross, axis=1)
+    areas_m2 = 0.5 * cross_length
 
     # square of edge lengths
     e10_l2 = np.sum(edge_10**2, axis=1)
@@ -122,20 +124,20 @@ def compute_triangle_properties(triangle_vertices_m: ArrayLike) -> TrianglePrope
     e21_l2 = np.sum(edge_21**2, axis=1)
     longest_l2 = np.maximum(np.maximum(e10_l2, e20_l2), e21_l2)
 
-    bad_triangles = np.where(tri_area <= DEGENERATE_RELATIVE_AREA * longest_l2)
-    if np.any(bad_triangles):
-        index = int(bad_triangles[0][0])
+    is_degenerate = areas_m2 <= DEGENERATE_RELATIVE_AREA * longest_l2
+    if np.any(is_degenerate):
+        index = int(np.flatnonzero(is_degenerate)[0])
         raise ValueError(
-            f"triangle_vertices_m: triangle {index} is degenerate; area {tri_area[index]:.6g} "
+            f"triangle_vertices_m: triangle {index} is degenerate; area {areas_m2[index]:.6g} "
             f"≤ {DEGENERATE_RELATIVE_AREA} × longest edge² {longest_l2[index]:.6g}."
         )
     # 4. Outward normals: the cross products divided by their lengths (keep the last axis, keepdims=True).
-    outward_normals = np.cross(edge_10, edge_20)
-    outward_normals /= np.linalg.norm(outward_normals, axis=1, keepdims=True)
+    outward_normals = cross / cross_length[:, np.newaxis]
     # 5. Centroids: the mean of the three corners.
     centroids_m = np.mean(vertices, axis=1)
 
-    return TriangleProperties(outward_normals=outward_normals, areas_m2=tri_area, centroids_m=centroids_m)
+    return TriangleProperties(outward_normals=outward_normals, areas_m2=areas_m2, centroids_m=centroids_m)
+
 
 def panel_set_from_triangles(
     triangle_vertices_m: ArrayLike,
