@@ -1,5 +1,7 @@
 # A3a: `PanelSet`, the one geometry the solver sees
 
+**Status: done 2026-10-30.** All tests pass; triangle maths written by the user. The review found a degenerate triangle at index 0 slipping through (`np.any` on `np.where`'s indices); fixed, and covered by new tests.
+
 Step plan for task A3a in `docs/tasks.md`. Read `docs/plans/A3_geometry_overview.md` first: it explains where this step sits among A3a, A3p, A3b, A3c and A3d. Mode: the user writes the triangle maths; Claude wrote the dataclass, the constructors, the validation and the tests.
 
 ## Goal

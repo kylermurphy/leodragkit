@@ -166,6 +166,19 @@ Rejected: swift_reentry's parallel implementers in separate worktrees, and its `
 
 **D-63. Macro-model normals whose length is within 10⁻³ of 1 are normalised; anything further off raises.** User, 2026-10-30. Published tables round their normals, often to 4 decimals, so |n̂| can miss 1 by about 10⁻⁴. This is a rounding allowance, like the cos δ clamp, with a named constant (`MACRO_MODEL_NORMAL_LENGTH_TOLERANCE`), not a silent fix. Inside a `PanelSet`, normals are unit vectors to 10⁻⁹, and a set built from triangles must agree with them.
 
+**D-64. 3-D spacecraft plots have one implementation, in plotly; there is no matplotlib fallback.** User, 2026-10-30. Two implementations of the same figure would double the code and tests. matplotlib's 3-D toolkit also draws faces back to front, which misdraws overlapping panels. When plotly is missing, the plot raises an `ImportError` with the install command (D-62). A static figure for a report comes later, by decision, when one is needed.
+
+**D-65. Each track has a running tutorial notebook, starting with `notebooks/aero_tutorial.ipynb`; every step adds a section showing what its code produces, and notebooks are committed with outputs cleared.** User, 2026-10-30. Passing tests do not show the end product; the notebook does. ruff formats and lints notebooks with the rest of the code (D-57). Clearing outputs keeps large interactive figures out of git.
+
+**D-66. Outward orientation is checked rigorously, per component, wherever the geometry allows it.** User, 2026-10-30.
+
+- **Closed components** (after welding coincident corners): every edge must be shared by two triangles running along it in opposite directions, and the signed volume must be positive. Otherwise raise, unless `reverse_winding=True` is passed; that flips every triangle and is recorded in `source`.
+- **Open plates** are built from their declared normal, never from user-ordered corners.
+- **A heuristic** lists panels that face the spacecraft's centre from outside, as a warning, never an error.
+- **STL stored normals** must agree with corner order (D-58).
+
+The checks live in `aero/geometry_checks.py`, with a per-component `summarise_geometry` table shown in the tutorial notebook. A clockwise triangle gives an inward normal, which silently swaps a ram face for a wake face. Users will write YAML descriptions and bring their own meshes, so mistakes are expected. Rejected: silent automatic flipping, which would hide a mistake rather than report it.
+
 ## Licence
 
 **D-32. leodragkit is released under the MIT licence.** User, 2026-10-27. This is compatible with D-28: the aero code is written from the published equations, and ADBSat's GPL-3 code is used only as a test oracle, never copied or translated.

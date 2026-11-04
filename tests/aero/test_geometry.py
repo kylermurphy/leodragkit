@@ -21,25 +21,6 @@ RIGHT_TRIANGLE_M = np.array(
 )  # counter-clockwise from +z
 
 
-def unit_cube_triangles_m():
-    """The 12 triangles of a unit cube centred on the origin, each counter-clockwise seen from outside."""
-    corners = np.array(
-        [[x, y, z] for x in (-0.5, 0.5) for y in (-0.5, 0.5) for z in (-0.5, 0.5)]
-    )  # index = 4·(x > 0) + 2·(y > 0) + (z > 0)
-    faces = [  # each face as four corners, counter-clockwise seen from outside, split into two triangles
-        (0, 1, 3, 2),  # −x
-        (4, 6, 7, 5),  # +x
-        (0, 4, 5, 1),  # −y
-        (2, 3, 7, 6),  # +y
-        (0, 2, 6, 4),  # −z
-        (1, 5, 7, 3),  # +z
-    ]
-    triangles = []
-    for a, b, c, d in faces:
-        triangles += [corners[[a, b, c]], corners[[a, c, d]]]
-    return np.array(triangles)
-
-
 # --- compute_triangle_properties ----------------------------------------------------------------
 
 
@@ -57,8 +38,8 @@ def test_reversing_the_corner_order_flips_the_normal():
     )
 
 
-def test_a_unit_cube_has_area_six_and_every_normal_points_away_from_its_centre():
-    properties = compute_triangle_properties(unit_cube_triangles_m())
+def test_a_unit_cube_has_area_six_and_every_normal_points_away_from_its_centre(unit_cube_triangles_m):
+    properties = compute_triangle_properties(unit_cube_triangles_m)
     assert properties.areas_m2.shape == (12,)
     assert properties.areas_m2.sum() == pytest.approx(6.0, rel=1e-14)
     outward = np.einsum("ij,ij->i", properties.outward_normals, properties.centroids_m)
@@ -73,17 +54,26 @@ def test_scaling_a_triangle_by_two_quadruples_its_area():
     np.testing.assert_allclose(properties.outward_normals, [[0.0, 0.0, 1.0]])
 
 
-@pytest.mark.parametrize(
-    "triangle",
-    [
-        [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]],  # collinear corners
-        [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 1.0, 0.0]],  # repeated corner
-    ],
-)
-def test_a_degenerate_triangle_raises_with_its_index(triangle):
-    triangles = np.array([RIGHT_TRIANGLE_M[0], triangle])
-    with pytest.raises(ValueError, match="1"):
+DEGENERATE_TRIANGLES = [
+    [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]],  # collinear corners
+    [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 1.0, 0.0]],  # repeated corner
+    [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],  # all corners equal: area and longest edge both 0
+]
+
+
+@pytest.mark.parametrize("triangle", DEGENERATE_TRIANGLES)
+@pytest.mark.parametrize("position", [0, 1])
+def test_a_degenerate_triangle_raises_with_its_index(triangle, position):
+    # Index 0 matters: a check written with np.where(...) and np.any on the indices misses it.
+    triangles = np.array([RIGHT_TRIANGLE_M[0], RIGHT_TRIANGLE_M[0]])
+    triangles[position] = triangle
+    with pytest.raises(ValueError, match=f"triangle {position} is degenerate"):
         compute_triangle_properties(triangles)
+
+
+def test_a_single_degenerate_triangle_raises():
+    with pytest.raises(ValueError, match="triangle 0 is degenerate"):
+        compute_triangle_properties(np.array([DEGENERATE_TRIANGLES[0]]))
 
 
 @pytest.mark.parametrize(
@@ -109,9 +99,9 @@ def test_random_triangles_match_trimesh():
 # --- panel_set_from_triangles -------------------------------------------------------------------
 
 
-def test_a_panel_set_from_triangles_carries_positions_and_corners():
+def test_a_panel_set_from_triangles_carries_positions_and_corners(unit_cube_triangles_m):
     panels = panel_set_from_triangles(
-        unit_cube_triangles_m(),
+        unit_cube_triangles_m,
         np.zeros(12, dtype=int),
         np.zeros(12, dtype=int),
         ("bus",),

@@ -168,6 +168,8 @@ Sentman uses one mean molecular mass. DRIA and CLL work per species, each with i
 
 **Moving parts.** Components are rigid and named. The solver places every component at its pose for each epoch before computing normals and shadowing. Every pose is fixed until articulation laws (hinge-angle series, Sun tracking) are added in A13 (D-42).
 
+**Outward orientation is checked** per component: closed components must be consistent with positive signed volume; open plates are built from their declared normals; a warning flags panels facing the body from outside (D-66; details in `docs/plans/A3_geometry_overview.md`).
+
 **Our own code, checked against trimesh.** The readers, primitives and transforms are short numpy code. trimesh (MIT) serves as an independent test oracle for areas, normals and ray hits (D-41).
 
 ## 6. Shadowing
