@@ -82,15 +82,22 @@ def plot_panel_set_3d(
         figure.show()
     """
     # 1. Check color_by (raise naming COLOR_BY_OPTIONS), then go = _import_plotly().
+    if color_by not in COLOR_BY_OPTIONS:
+        raise ValueError(f"color_by must be one of {COLOR_BY_OPTIONS}, not {color_by!r}")
+    go = _import_plotly()
     # 2. Use the given figure, or make a new go.Figure().
+    if figure is None:
+        figure = go.Figure()
     # 3. Mesh: if the set has triangles, _add_mesh_traces(figure, go, panel_set, color_by).
+    if panel_set.triangle_vertices_m is not None:
+        _add_mesh_traces(figure, go, panel_set, color_by)
     # 4. Normals: work out each line's start and end (centroids, or the origin scaled by area; the length
     #    from normal_length_m or _largest_dimension_m), then _add_normal_traces(figure, go, starts, ends).
     # 5. Body axes: _add_body_axes_traces(figure, go, _largest_dimension_m(panel_set)).
     # 6. Layout: scene aspectmode="data", axis titles "x (m)", "y (m)", "z (m)", and a title with the
     #    source (plus NO_POSITIONS_NOTE when the set has no positions).
     # 7. Return the figure.
-    raise NotImplementedError("plot_panel_set_3d: follow the numbered steps and the three helpers below.")
+    return figure
 
 
 def _add_mesh_traces(figure, go, panel_set: PanelSet, color_by: str) -> None:
@@ -100,10 +107,39 @@ def _add_mesh_traces(figure, go, panel_set: PanelSet, color_by: str) -> None:
     i, j, k indexing them, with flatshading=True and hover text giving panel index, component, material,
     area in m² and normal.
     """
+    import plotly.colors
     # 1. Choose the ids and names (component or material).
-    # 2. For each name: select its panels, flatten their corners to (3n, 3), set i, j, k = 0, 1, 2, 3, 4, 5, …
-    # 3. Add the Mesh3d with name=..., showlegend=True, a colour from go's qualitative palette, hover text.
-    raise NotImplementedError("_add_mesh_traces: plotly.colors.qualitative.Plotly is a ready palette.")
+    if color_by == "component":
+        ids, names = panel_set.component_ids, panel_set.component_names
+    else:
+        ids, names = panel_set.material_ids, panel_set.material_names
+    palette = plotly.colors.qualitative.Plotly
+
+    # 2. One trace per name: its triangles' corners, flattened, with i, j, k pointing at them in threes.
+    for name_index, name in enumerate(names):
+        panels = np.flatnonzero(ids == name_index)
+        if len(panels) == 0:
+            continue
+        corners_m = panel_set.triangle_vertices_m[panels].reshape(-1, 3)
+        first_corner = np.arange(0, len(corners_m), 3)
+
+        # 3. Hover text per triangle, repeated for its three corners (Mesh3d text belongs to vertices).
+        texts = [
+            f"panel {p}<br>component {panel_set.component_names[panel_set.component_ids[p]]}"
+            f"<br>material {panel_set.material_names[panel_set.material_ids[p]]}"
+            f"<br>area {panel_set.areas_m2[p]:.4g} m²<br>normal {np.round(panel_set.outward_normals[p], 3)}"
+            for p in panels
+        ]
+
+        figure.add_trace(
+            go.Mesh3d(
+                x=corners_m[:, 0], y=corners_m[:, 1], z=corners_m[:, 2],
+                i=first_corner, j=first_corner + 1, k=first_corner + 2,
+                name=name, showlegend=True, flatshading=True,
+                color=palette[name_index % len(palette)],
+                hovertext=np.repeat(texts, 3), hoverinfo="text",
+            )
+        )
 
 
 def _add_normal_traces(figure, go, starts_m: np.ndarray, ends_m: np.ndarray) -> None:
