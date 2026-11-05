@@ -93,9 +93,34 @@ def plot_panel_set_3d(
         _add_mesh_traces(figure, go, panel_set, color_by)
     # 4. Normals: work out each line's start and end (centroids, or the origin scaled by area; the length
     #    from normal_length_m or _largest_dimension_m), then _add_normal_traces(figure, go, starts, ends).
+    if show_normals:
+        size_m = _largest_dimension_m(panel_set)
+        if panel_set.has_positions:
+            length_m = normal_length_m if normal_length_m is not None else NORMAL_LENGTH_FRACTION * size_m
+            starts_m = panel_set.centroids_m
+            ends_m = starts_m + length_m * panel_set.outward_normals
+        else:
+            starts_m = np.zeros_like(panel_set.outward_normals)
+            relative_areas = panel_set.areas_m2 / panel_set.areas_m2.max()
+            ends_m = size_m * relative_areas[:, np.newaxis] * panel_set.outward_normals
+
+        _add_normal_traces(figure, go, starts_m, ends_m)
+
     # 5. Body axes: _add_body_axes_traces(figure, go, _largest_dimension_m(panel_set)).
+    if show_body_axes:
+        _add_body_axes_traces(figure, go, _largest_dimension_m(panel_set))
     # 6. Layout: scene aspectmode="data", axis titles "x (m)", "y (m)", "z (m)", and a title with the
     #    source (plus NO_POSITIONS_NOTE when the set has no positions).
+    figure.update_layout(
+        title=f"Spacecraft panels from {panel_set.source}"
+        + (f"<br>{NO_POSITIONS_NOTE}" if not panel_set.has_positions else ""),
+        scene=dict(
+            aspectmode="data",
+            xaxis_title="x (m)",
+            yaxis_title="y (m)",
+            zaxis_title="z (m)",
+        )
+    )
     # 7. Return the figure.
     return figure
 
@@ -149,15 +174,33 @@ def _add_normal_traces(figure, go, starts_m: np.ndarray, ends_m: np.ndarray) -> 
     legend group, so clicking either hides both.
     """
     # 1. Interleave starts, ends and None rows into x, y, z lists of length 3n.
+    # The None is needed to break the lines between panels, else all normals are one long line.
+    x_coords, y_coords, z_coords = [], [], []
+    for start, end in zip(starts_m, ends_m):
+        x_coords += [start[0], end[0], None]
+        y_coords += [start[1], end[1], None]
+        z_coords += [start[2], end[2], None]
     # 2. Add the lines trace (NORMALS_TRACE_NAME) and the tips trace (NORMAL_TIPS_TRACE_NAME, at the ends).
-    raise NotImplementedError("_add_normal_traces: build x, y, z with None between segments.")
+    figure.add_trace(go.Scatter3d(x=x_coords, y=y_coords, z=z_coords, mode='lines',
+                                  name=NORMALS_TRACE_NAME,legendgroup=NORMALS_TRACE_NAME))
+    figure.add_trace(go.Scatter3d(x=ends_m[:, 0], y=ends_m[:, 1], z=ends_m[:, 2],
+                                   mode="markers", marker={"size": 3},
+                                   name=NORMAL_TIPS_TRACE_NAME, legendgroup=NORMALS_TRACE_NAME))
 
 
 def _add_body_axes_traces(figure, go, length_m: float) -> None:
     """Add the body x, y and z axes as three ``Scatter3d`` lines from the origin, named and coloured."""
     # 1. For each axis: a line from the origin to length_m along it, named BODY_AXIS_TRACE_NAMES[i],
     #    coloured BODY_AXIS_COLOURS[i], with its label as text at the tip.
-    raise NotImplementedError("_add_body_axes_traces: three short Scatter3d traces.")
+    figure.add_trace(go.Scatter3d(x=[0,length_m], y=[0,0], z=[0,0], mode='lines',
+                                      name=BODY_AXIS_TRACE_NAMES[0], 
+                                      line=dict(color=BODY_AXIS_COLOURS[0])))
+    figure.add_trace(go.Scatter3d(x=[0,0], y=[0,length_m], z=[0,0], mode='lines',
+                                          name=BODY_AXIS_TRACE_NAMES[1],
+                                      line=dict(color=BODY_AXIS_COLOURS[1])))
+    figure.add_trace(go.Scatter3d(x=[0,0], y=[0,0], z=[0,length_m], mode='lines',
+                                              name=BODY_AXIS_TRACE_NAMES[2],
+                                      line=dict(color=BODY_AXIS_COLOURS[2])))
 
 
 def _largest_dimension_m(panel_set: PanelSet) -> float:
