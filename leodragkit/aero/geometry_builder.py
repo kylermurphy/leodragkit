@@ -213,17 +213,17 @@ def build_box_triangles(
     # 1. For each row of the table: a one-sided plate of the face's size, placed at its pose.
     faces = [
         ((0,1,0), (1,0,0), (size_y_m, size_z_m), size_x_m/2),  # +x
-        ((0,-1,0), (-1,0,0), (size_y_m, size_z_m), -size_x_m/2), # -x
+        ((0,-1,0), (-1,0,0), (size_y_m, size_z_m), size_x_m/2), # -x
         ((0,0,1), (0,1,0), (size_z_m, size_x_m), size_y_m/2), # +y
-        ((0,0,-1), (0,-1,0), (size_z_m, size_x_m), -size_y_m/2), # -y
+        ((0,0,-1), (0,-1,0), (size_z_m, size_x_m), size_y_m/2), # -y
         ((1,0,0), (0,0,1), (size_x_m, size_y_m), size_z_m/2), # +z
-        ((-1,0,0), (0,0,-1), (size_x_m, size_y_m), -size_z_m/2) # -z
+        ((-1,0,0), (0,0,-1), (size_x_m, size_y_m), size_z_m/2) # -z
     ]
 
     placed_faces = []
     for x_axis, z_axis, (plate_x_m, plate_y_m), distance_m in faces:
         plate = build_plate_triangles(plate_x_m, plate_y_m, max_edge_length_m=max_edge_length_m)
-        pose = make_pose(np.array(z_axis)* distance_m, x_axis, z_axis)
+        pose = make_pose(np.array(z_axis) * distance_m, x_axis, z_axis)
         placed_faces.append(place_triangles(plate, pose))
 
     # 2. Concatenate the six faces in table order.
@@ -251,11 +251,51 @@ def build_cylinder_triangles(
 
         boom_m = build_cylinder_triangles(0.01, 0.5, max_edge_length_m=0.05, capped=False)
     """
-    # 1. Check radius and height are positive; number of segments and rows.
-    # 2. Angles and heights; the corner coordinates (R cos θ, R sin θ, z).
-    # 3. The side cells, two triangles each.
-    # 4. If capped, the top and bottom fans.
-    raise NotImplementedError("build_cylinder_triangles: side cells, then optional caps.")
+        # 1. Check radius and height are positive; number of segments around and rows along the axis.
+    if radius_m <= 0 or height_m <= 0:
+        raise ValueError(f"radius_m and height_m must be positive, got {radius_m!r} and {height_m!r}.")
+    if max_edge_length_m is None:
+        segment_count = MINIMUM_CYLINDER_SEGMENTS
+    else:
+        arc_segments = int(np.ceil(2 * np.pi * radius_m / max_edge_length_m - 1e-12))
+        segment_count = max(MINIMUM_CYLINDER_SEGMENTS, arc_segments)
+    row_count = _cells_along(height_m, max_edge_length_m)
+
+    # 2. Angles and heights, and every corner on the side: (R cos θ, R sin θ, z). Segment k + 1 wraps to 0
+    #    (k modulo n), so the last segment ends on exactly the corners the first begins on: a closed seam.
+    angles = 2 * np.pi * np.arange(segment_count) / segment_count
+    heights = np.linspace(-height_m / 2, height_m / 2, row_count + 1)
+    rim_x, rim_y = radius_m * np.cos(angles), radius_m * np.sin(angles)
+
+    def side_corner(k: int, z: float) -> list[float]:
+        return [rim_x[k % segment_count], rim_y[k % segment_count], z]
+
+    # 3. The side cells, two triangles each, (p0, p1, p2) and (p0, p2, p3): counter-clockwise from outside.
+    triangles = []
+    for k in range(segment_count):
+        for z0, z1 in zip(heights[:-1], heights[1:]):
+            p0, p1, p2, p3 = (
+                side_corner(k, z0),
+                side_corner(k + 1, z0),
+                side_corner(k + 1, z1),
+                side_corner(k, z1),
+            )
+            triangles += [[p0, p1, p2], [p0, p2, p3]]
+
+    # 4. The caps, if any: fans from the centre of each end. The top runs counter-clockwise seen from +z;
+    #    the bottom uses the same corners in the opposite order, so it faces −z.
+    if capped:
+        top_z, bottom_z = height_m / 2, -height_m / 2
+        triangles += [
+            [[0.0, 0.0, top_z], side_corner(k, top_z), side_corner(k + 1, top_z)]
+            for k in range(segment_count)
+        ]
+        triangles += [
+            [[0.0, 0.0, bottom_z], side_corner(k + 1, bottom_z), side_corner(k, bottom_z)]
+            for k in range(segment_count)
+        ]
+
+    return np.array(triangles, dtype=float)
 
 
 def _cells_along(length_m: float, max_edge_length_m: float | None) -> int:
