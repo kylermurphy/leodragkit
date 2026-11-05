@@ -167,18 +167,22 @@ def build_plate_triangles(
 
     # 3. For every cell, its two front triangles.
     n_triangles = 2 * xn_cell * yn_cell
-    cell_triangles = np.ndarray((n_triangles, 3, 3))
+    cell_triangles = np.empty((n_triangles, 3, 3))
+    xs = np.linspace(-size_x_m / 2, size_x_m / 2, xn_cell + 1)
+    ys = np.linspace(-size_y_m / 2, size_y_m / 2, yn_cell + 1)
+    cell_triangles = np.empty((2 * xn_cell * yn_cell, 3, 3))
     i = 0
-    x_spc = size_x_m / xn_cell
-    y_spc = size_y_m / yn_cell
-    for x in np.linspace(-size_x_m / 2, size_x_m / 2, xn_cell + 1):
-            for y in np.linspace(-size_y_m / 2, size_y_m / 2, yn_cell + 1):
-                cell_triangles[i] = [[x, y, 0], [x + x_spc, y, 0], [x + x_spc, y + y_spc, 0]]
-                cell_triangles[i + 1] = [[x, y, 0], [x + x_spc, y + y_spc, 0], [x, y + y_spc, 0]]
-                i += 2
+    for x0, x1 in zip(xs[:-1], xs[1:]):
+        for y0, y1 in zip(ys[:-1], ys[1:]):
+            p00, p10, p11, p01 = [x0, y0, 0], [x1, y0, 0], [x1, y1, 0], [x0, y1, 0]
+            cell_triangles[i] = [p00, p10, p11]
+            cell_triangles[i + 1] = [p00, p11, p01]
+            i += 2
 
     # 4. If two-sided, append every front triangle with its corners reversed.
-    return cell_triangles if not two_sided else np.concatenate([cell_triangles, cell_triangles[:, ::-1, :]], axis=0)
+    if two_sided:
+      cell_triangles = np.concatenate([cell_triangles, cell_triangles[:, ::-1, :]])
+    return cell_triangles
 
 
 def build_box_triangles(
@@ -207,8 +211,23 @@ def build_box_triangles(
         bus_m = build_box_triangles(0.1, 0.1, 0.34, max_edge_length_m=0.05)
     """
     # 1. For each row of the table: a one-sided plate of the face's size, placed at its pose.
+    faces = [
+        ((0,1,0), (1,0,0), (size_y_m, size_z_m), size_x_m/2),  # +x
+        ((0,-1,0), (-1,0,0), (size_y_m, size_z_m), -size_x_m/2), # -x
+        ((0,0,1), (0,1,0), (size_z_m, size_x_m), size_y_m/2), # +y
+        ((0,0,-1), (0,-1,0), (size_z_m, size_x_m), -size_y_m/2), # -y
+        ((1,0,0), (0,0,1), (size_x_m, size_y_m), size_z_m/2), # +z
+        ((-1,0,0), (0,0,-1), (size_x_m, size_y_m), -size_z_m/2) # -z
+    ]
+
+    placed_faces = []
+    for x_axis, z_axis, (plate_x_m, plate_y_m), distance_m in faces:
+        plate = build_plate_triangles(plate_x_m, plate_y_m, max_edge_length_m=max_edge_length_m)
+        pose = make_pose(np.array(z_axis)* distance_m, x_axis, z_axis)
+        placed_faces.append(place_triangles(plate, pose))
+
     # 2. Concatenate the six faces in table order.
-    raise NotImplementedError("build_box_triangles: six placed plates, one per row of the table.")
+    return np.concatenate(placed_faces)
 
 
 def build_cylinder_triangles(
