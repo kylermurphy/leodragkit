@@ -126,8 +126,10 @@ def place_triangles(triangles_own_m: ArrayLike, pose: Pose) -> np.ndarray:
         body_triangles_m = place_triangles(build_plate_triangles(0.3, 0.1), panel_pose)
     """
     # 1. Rotate every corner with pose.rotation_matrix (np.einsum or the @ operator on the last axis).
+    r_triangles = triangles_own_m @ pose.rotation_matrix.T
+
     # 2. Add the centre.
-    raise NotImplementedError("place_triangles: R · v + centre for every corner; mind which axis is which.")
+    return r_triangles + pose.centre_m
 
 
 def build_plate_triangles(
@@ -157,10 +159,26 @@ def build_plate_triangles(
         solar_panel_m = build_plate_triangles(0.3, 0.1, max_edge_length_m=0.05, two_sided=True)
     """
     # 1. Check the sizes are positive (the maximum edge length is checked by _cells_along).
+    if size_x_m <= 0 or size_y_m <= 0:
+        raise ValueError(f"size_x_m and size_y_m must be positive, got {size_x_m!r} and {size_y_m!r}.")
     # 2. Number of cells along x and y, and the corner coordinates (np.linspace from −size/2 to +size/2).
+    xn_cell = _cells_along(size_x_m, max_edge_length_m=max_edge_length_m)
+    yn_cell = _cells_along(size_y_m, max_edge_length_m=max_edge_length_m)
+
     # 3. For every cell, its two front triangles.
+    n_triangles = 2 * xn_cell * yn_cell
+    cell_triangles = np.ndarray((n_triangles, 3, 3))
+    i = 0
+    x_spc = size_x_m / xn_cell
+    y_spc = size_y_m / yn_cell
+    for x in np.linspace(-size_x_m / 2, size_x_m / 2, xn_cell + 1):
+            for y in np.linspace(-size_y_m / 2, size_y_m / 2, yn_cell + 1):
+                cell_triangles[i] = [[x, y, 0], [x + x_spc, y, 0], [x + x_spc, y + y_spc, 0]]
+                cell_triangles[i + 1] = [[x, y, 0], [x + x_spc, y + y_spc, 0], [x, y + y_spc, 0]]
+                i += 2
+
     # 4. If two-sided, append every front triangle with its corners reversed.
-    raise NotImplementedError("build_plate_triangles: a grid of cells, two triangles each, centred on 0.")
+    return cell_triangles if not two_sided else np.concatenate([cell_triangles, cell_triangles[:, ::-1, :]], axis=0)
 
 
 def build_box_triangles(
