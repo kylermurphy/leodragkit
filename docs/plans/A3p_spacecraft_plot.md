@@ -1,5 +1,7 @@
 # A3p: Interactive 3-D plot of a `PanelSet`
 
+**Status: done 2026-10-30.** All 141 tests pass; plotting written by the user and reviewed. Triangle edges (a wireframe to tell triangles apart) are a follow-up, in A3b's plan.
+
 Step plan for task A3p in `docs/tasks.md`; part of A3 (`docs/plans/A3_geometry_overview.md`). Mode: the user writes the plotting code; Claude wrote the template, the helpers that are not plotting (importing plotly, sizing), the tests, the shared test fixtures and the start of the tutorial notebook.
 
 ## Goal
@@ -80,7 +82,8 @@ At the start: 11 failed, 130 passed in the fast suite. Every failure is a `NotIm
 - **One line trace for all normals.** Adding a trace per normal makes the legend unusable and slows the figure; put `None` between segments instead.
 - **Arrays versus lists.** `Scatter3d` accepts lists with `None` in them; a numpy float array cannot hold `None`, so build the line coordinates as lists or as an object array.
 - **Equal proportions.** Without `aspectmode="data"`, plotly stretches each axis to fill the box, and a flat panel can look like a cube.
-- **Hover text.** Give each mesh trace one text entry per triangle and set `hoverinfo="text"` (or a `hovertemplate`), or plotly shows only coordinates.
+- **Hover text.** `Mesh3d` text belongs to vertices, not triangles: build one string per triangle and repeat it for its three corners (`np.repeat(texts, 3)`), and set `hoverinfo="text"`, or plotly shows only coordinates. (Corrected 2026-10-30; the first version of this plan said one entry per triangle.)
+- **No `i`, `j`, `k`, no triangles.** Without them `Mesh3d` triangulates the points itself (alpha shape or Delaunay), so the faces are plotly's, not yours.
 
 ## Done when
 

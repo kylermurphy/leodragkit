@@ -25,7 +25,7 @@ The skeleton and the main config exist so far (tasks T-00, T-01):
 - `tests/aero/test_gas_surface_sentman.py`: structural checks of the plate, plus 50-digit precision references for back faces.
 - `leodragkit/aero/geometry.py` (task A3a): `PanelSet`, the one geometry the solver sees. Read `PanelSet` (its fields and the checks run when one is created), then `compute_triangle_properties`, then the two constructors: `panel_set_from_triangles` and `panel_set_from_panels` (macro models). Overview of A3: `docs/plans/A3_geometry_overview.md`; step plan: `docs/plans/A3a_panel_set.md`.
 - `tests/aero/test_geometry.py`: one triangle, a unit cube, random triangles against trimesh, and the validation rules.
-- `leodragkit/plots/spacecraft.py` (task A3p, being written): `plot_panel_set_3d`, an interactive plotly figure of a `PanelSet` with its normals and the body axes (D-61, D-62). plotly is imported only inside the function. Step plan: `docs/plans/A3p_spacecraft_plot.md`.
+- `leodragkit/plots/spacecraft.py` (task A3p): `plot_panel_set_3d`, an interactive plotly figure of a `PanelSet` with its normals and the body axes (D-61, D-62). plotly is imported only inside the function. Step plan: `docs/plans/A3p_spacecraft_plot.md`.
 - `tests/conftest.py`: shared fixtures; a unit cube as triangles and as a `PanelSet` with two components and two materials.
 - `tests/plots/test_spacecraft.py`: smoke tests on the figure object, skipped without plotly.
 - `notebooks/aero_tutorial.ipynb`: the running tutorial; one section per aero task (D-65).
