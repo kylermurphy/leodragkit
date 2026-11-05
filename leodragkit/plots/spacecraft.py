@@ -21,6 +21,7 @@ COLOR_BY_OPTIONS = ("component", "material")
 NORMAL_LENGTH_FRACTION = 0.1
 
 # Trace names, fixed so tests and later plot levels can find the traces.
+TRIANGLE_EDGES_TRACE_NAME = "triangle edges"
 NORMALS_TRACE_NAME = "outward normals"
 NORMAL_TIPS_TRACE_NAME = "normal tips"
 BODY_AXIS_TRACE_NAMES = ("body x", "body y", "body z")
@@ -35,6 +36,7 @@ def plot_panel_set_3d(
     show_normals: bool = True,
     normal_length_m: float | None = None,
     show_body_axes: bool = True,
+    show_edges: bool = True,
     figure=None,
 ):
     """Return an interactive 3-D plotly figure of the panels, their outward normals and the body axes.
@@ -52,6 +54,9 @@ def plot_panel_set_3d(
         Length of the normal lines in metres; by default ``NORMAL_LENGTH_FRACTION`` of the largest dimension.
     show_body_axes
         Draw the body x, y and z axes from the origin, in red, green and blue.
+    show_edges
+        Outline every triangle in a thin dark line (``TRIANGLE_EDGES_TRACE_NAME``), so coplanar triangles
+        and the mesh resolution are visible. Only when the set has triangles.
     figure
         An existing ``plotly.graph_objects.Figure`` to add the traces to; a new one when None.
 
@@ -91,6 +96,8 @@ def plot_panel_set_3d(
     # 3. Mesh: if the set has triangles, _add_mesh_traces(figure, go, panel_set, color_by).
     if panel_set.triangle_vertices_m is not None:
         _add_mesh_traces(figure, go, panel_set, color_by)
+        if show_edges:
+            _add_edge_traces(figure, go, panel_set.triangle_vertices_m)
     # 4. Normals: work out each line's start and end (centroids, or the origin scaled by area; the length
     #    from normal_length_m or _largest_dimension_m), then _add_normal_traces(figure, go, starts, ends).
     if show_normals:
@@ -173,6 +180,33 @@ def _add_mesh_traces(figure, go, panel_set: PanelSet, color_by: str) -> None:
                 hoverinfo="text",
             )
         )
+
+
+def _add_edge_traces(figure, go, triangle_vertices_m: np.ndarray) -> None:
+    """Add every triangle's outline as one ``Scatter3d`` trace of lines, broken between triangles.
+
+    Each triangle is drawn v₀ → v₁ → v₂ → v₀ followed by a break (None), so the trace holds five
+    entries per triangle and can be switched off from the legend.
+    """
+    # 1. Each triangle as v0, v1, v2, v0 and a break; an object array can hold None, a float array cannot.
+    count = len(triangle_vertices_m)
+    points = np.full((count, 5, 3), None, dtype=object)
+    points[:, :3] = triangle_vertices_m
+    points[:, 3] = triangle_vertices_m[:, 0]
+    points = points.reshape(-1, 3)
+
+    # 2. One thin, dark trace without hover labels, so it never hides the panels' own hover text.
+    figure.add_trace(
+        go.Scatter3d(
+            x=points[:, 0].tolist(),
+            y=points[:, 1].tolist(),
+            z=points[:, 2].tolist(),
+            mode="lines",
+            line={"color": "black", "width": 1},
+            name=TRIANGLE_EDGES_TRACE_NAME,
+            hoverinfo="skip",
+        )
+    )
 
 
 def _add_normal_traces(figure, go, starts_m: np.ndarray, ends_m: np.ndarray) -> None:

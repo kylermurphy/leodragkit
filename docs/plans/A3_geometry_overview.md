@@ -1,6 +1,6 @@
 # A3: Geometry, overview of the split
 
-A3 builds everything that turns a description of a spacecraft into the one geometry the solver sees, a `PanelSet` (D-41, D-56). It is too large for one step, so it is split into five sub-steps, each with its own plan in `docs/plans/` (D-51). This overview holds what the sub-steps share: the order, what each one hands to the next, and the conventions all of them follow. Read it before writing any A3 sub-step plan.
+A3 builds everything that turns a description of a spacecraft into the one geometry the solver sees, a `PanelSet` (D-41, D-56). It is too large for one step, so it is split into sub-steps (A3b itself into three, D-67), each with its own plan in `docs/plans/` (D-51). This overview holds what the sub-steps share: the order, what each one hands to the next, and the conventions all of them follow. Read it before writing any A3 sub-step plan.
 
 ## The sub-steps
 
@@ -8,17 +8,21 @@ A3 builds everything that turns a description of a spacecraft into the one geome
 | --- | --- | --- | --- | --- |
 | A3a | `PanelSet` from triangles (normals, areas, centroids derived) or from bare panels (macro models), with validation | `aero/geometry.py` | `PanelSet`, `panel_set_from_triangles`, `panel_set_from_panels` | A1 |
 | A3p | interactive 3-D plot of a `PanelSet`: triangles coloured by component or material, outward normals, body axes; macro-model panels as arrows | `plots/spacecraft.py` | `plot_panel_set_3d` | A3a |
-| A3b | primitives (plate, box, cylinder) as outward triangles with a maximum edge length; placing a component at its pose; joining components into one `PanelSet`; the orientation checks | `aero/geometry_builder.py`, `aero/geometry_checks.py` | primitive functions returning triangles; `join_panel_sets`; `summarise_geometry` and the checks | A3a |
+| A3b1 | primitives in their own frame (plate, box, cylinder) as outward triangles at a chosen resolution; `Pose` and placing; the triangle-edge wireframe in the plot | `aero/geometry_builder.py`, `plots/spacecraft.py` | `Pose`, `make_pose`, `place_triangles`, `build_plate_triangles`, `build_box_triangles`, `build_cylinder_triangles` | A3a, A3p |
+| A3b2 | joining placed components into one `PanelSet`: merged names, renumbered ids | `aero/geometry_builder.py` | `join_components` | A3b1 |
+| A3b3 | the orientation checks (closed, consistent, positive signed volume, the facing-the-body heuristic) and `summarise_geometry` | `aero/geometry_checks.py` | the checks; `summarise_geometry` | A3b2 |
 | A3c | materials, and YAML component descriptions → `PanelSet` | `aero/materials.py`, `aero/geometry_builder.py`, `io/geometry_files.py` | `SurfaceMaterial`; `build_panel_set_from_description`; `read_component_description_file` | A3b |
 | A3d | macro-model tables and STL/OBJ meshes → `PanelSet` | `io/geometry_files.py`, `io/mesh_files.py` | `read_macro_model_file`; `read_stl_file`, `read_obj_file` | A3a |
 
 ```mermaid
 flowchart LR
   A3a["A3a PanelSet"] --> A3p["A3p 3-D plot"]
-  A3a --> A3b["A3b primitives and poses"]
-  A3b --> A3c["A3c materials and YAML"]
+  A3a --> A3b1["A3b1 primitives and poses"]
+  A3b1 --> A3b2["A3b2 joining"]
+  A3b2 --> A3b3["A3b3 orientation checks"]
+  A3b3 --> A3c["A3c materials and YAML"]
   A3a --> A3d["A3d macro models and meshes"]
-  A3p -.->|checks by eye| A3b
+  A3p -.->|checks by eye| A3b1
   A3p -.-> A3c
   A3p -.-> A3d
 ```
@@ -68,7 +72,7 @@ The checks run **per component**, never on the union: components may touch, so t
 
 Who adds what:
 
-- **A3b** writes `geometry_checks.py`. It applies the checks to every primitive, and tests them on deliberately broken shapes: one face flipped, all faces flipped, a hole.
+- **A3b3** writes `geometry_checks.py`. It applies the checks to every primitive, and tests them on deliberately broken shapes: one face flipped, all faces flipped, a hole.
 - **A3c** applies them to YAML-built spacecraft. It also checks each pose: the x and z axes must be unit length and perpendicular, and y is computed as z × x, so the axes are right-handed by construction.
 - **A3d** applies them to meshes and tables, adds the `reverse_winding` option, and reports meshes that are not closed.
 
@@ -80,7 +84,7 @@ Who adds what:
 
 ## The tutorial notebook
 
-Each sub-step adds a section to `notebooks/aero_tutorial.ipynb` showing what it produces (D-65): A3a and A3p start it with a triangle, a hand-built cube and a macro model; A3b replaces the hand-built cube with primitives; A3c reads the same spacecraft from YAML; A3d loads a mesh file.
+Each sub-step adds a section to `notebooks/aero_tutorial.ipynb` showing what it produces (D-65): A3a and A3p start it with a triangle, a hand-built cube and a macro model; A3b1 shows the primitives at two resolutions; A3b2 builds a 3U CubeSat from them; A3b3 adds the summary table; A3c reads the same spacecraft from YAML; A3d loads a mesh file.
 
 ## Writing each sub-step's plan
 

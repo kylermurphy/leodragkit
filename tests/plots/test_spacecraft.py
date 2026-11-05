@@ -18,6 +18,7 @@ from leodragkit.plots.spacecraft import (
     NO_POSITIONS_NOTE,
     NORMAL_TIPS_TRACE_NAME,
     NORMALS_TRACE_NAME,
+    TRIANGLE_EDGES_TRACE_NAME,
     plot_panel_set_3d,
 )
 
@@ -84,6 +85,20 @@ def test_a_macro_model_without_positions_draws_normals_from_the_origin_scaled_by
     tip_lengths = np.linalg.norm(np.column_stack([tips.x, tips.y, tips.z]), axis=1)
     np.testing.assert_allclose(tip_lengths[1] / tip_lengths[0], 0.25)  # areas 0.01 / 0.04
     assert NO_POSITIONS_NOTE in figure.layout.title.text
+
+
+def test_triangle_edges_are_one_trace_with_five_entries_per_triangle(go, unit_cube_panel_set):
+    figure = plot_panel_set_3d(unit_cube_panel_set)
+    (edges,) = traces_named(figure, TRIANGLE_EDGES_TRACE_NAME)
+    assert len(edges.x) == 5 * unit_cube_panel_set.panel_count  # v0, v1, v2, v0, None per triangle
+    assert not traces_named(
+        plot_panel_set_3d(unit_cube_panel_set, show_edges=False), TRIANGLE_EDGES_TRACE_NAME
+    )
+
+
+def test_a_macro_model_without_triangles_has_no_edges(go):
+    panels = panel_set_from_panels([[1.0, 0.0, 0.0]], [0.04], [0], [0], ("bus",), ("aluminium",), "table")
+    assert not traces_named(plot_panel_set_3d(panels), TRIANGLE_EDGES_TRACE_NAME)
 
 
 def test_the_scene_keeps_true_proportions(go, unit_cube_panel_set):

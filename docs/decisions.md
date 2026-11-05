@@ -179,6 +179,16 @@ Rejected: swift_reentry's parallel implementers in separate worktrees, and its `
 
 The checks live in `aero/geometry_checks.py`, with a per-component `summarise_geometry` table shown in the tutorial notebook. A clockwise triangle gives an inward normal, which silently swaps a ram face for a wake face. Users will write YAML descriptions and bring their own meshes, so mistakes are expected. Rejected: silent automatic flipping, which would hide a mistake rather than report it.
 
+**D-67. A3b is split into A3b1 (primitives, poses, placing), A3b2 (joining) and A3b3 (orientation checks). The primitives are built in their own frames and subdivided to a chosen resolution.** User, 2026-10-30.
+
+- **Own frames:** a plate in the x–y plane with normal +z; a box with edges along x, y and z; a cylinder with its axis along z, all centred on their own origin.
+- **Resolution:** `max_edge_length_m` splits each rectangle into cells no longer than that on each side, two triangles per cell. Cylinders get ⌈2πR / max_edge_length_m⌉ segments, at least 8. `None` means the coarsest mesh, a documented choice rather than a hidden default.
+- **Cylinder caps** are fans from their centres and are not refined; their triangles reach the rim.
+
+One step would have been about 350 lines, beyond the per-step limit.
+
+**D-68. Pose axes typed by hand may be rounded: `make_pose` accepts unit length and perpendicularity within 10⁻³, then makes them exact (normalise x, remove x's component from z, normalise z); beyond that it raises. A `Pose` itself insists on exact axes, and y = z × x.** User, 2026-10-30. This is the same rounding allowance as macro-model normals (D-63). Computing y from z and x makes the axes right-handed by construction.
+
 ## Licence
 
 **D-32. leodragkit is released under the MIT licence.** User, 2026-10-27. This is compatible with D-28: the aero code is written from the published equations, and ADBSat's GPL-3 code is used only as a test oracle, never copied or translated.
