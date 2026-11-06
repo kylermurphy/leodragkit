@@ -23,6 +23,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from leodragkit.aero.geometry import PanelSet, panel_set_from_triangles
+from leodragkit.aero.geometry_checks import check_panel_set_orientation
 
 # Hand-typed axes are rounded (for example [0, 0.7071, 0.7071]); within this tolerance they are made
 # exactly unit length and perpendicular, beyond it they raise.
@@ -356,8 +357,13 @@ def join_components(components: Sequence[Component], source: str) -> PanelSet:
     Raises
     ------
     ValueError
-        If there are no components, a component name is used twice (the message names it), or ``source`` is
-        empty.
+        If there are no components, a component name is used twice (the message names it), ``source`` is
+        empty, or a closed component is wound inconsistently or inward (``geometry_checks``).
+
+    Warns
+    -----
+    GeometryOrientationWarning
+        If a one-sided open component has panels facing the spacecraft's centre.
 
     Example::
 
@@ -384,7 +390,7 @@ def join_components(components: Sequence[Component], source: str) -> PanelSet:
     # 4. Concatenate the triangles in component order and build the PanelSet with panel_set_from_triangles.
     triangles = np.concatenate([c.triangle_vertices_m for c in components], axis=0)
 
-    return panel_set_from_triangles(
+    joined = panel_set_from_triangles(
         triangle_vertices_m=triangles,
         component_ids=comp_tri_id,
         material_ids=mat_tri_id,
@@ -392,6 +398,11 @@ def join_components(components: Sequence[Component], source: str) -> PanelSet:
         material_names=tuple(material_names),
         source=source,
     )
+
+    # 5. Check every component points outward: raises on a strict failure, warns on a one-sided panel facing
+    #    the body (geometry_checks.check_panel_set_orientation).
+    check_panel_set_orientation(joined)
+    return joined
 
 
 def _cells_along(length_m: float, max_edge_length_m: float | None) -> int:
