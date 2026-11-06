@@ -22,7 +22,7 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import ArrayLike
 
-from leodragkit.aero.geometry import PanelSet, panel_set_from_triangles  # noqa: F401  (used once join_components is written; then remove)
+from leodragkit.aero.geometry import PanelSet, panel_set_from_triangles
 
 # Hand-typed axes are rounded (for example [0, 0.7071, 0.7071]); within this tolerance they are made
 # exactly unit length and perpendicular, beyond it they raise.
@@ -375,19 +375,18 @@ def join_components(components: Sequence[Component], source: str) -> PanelSet:
             unique_names.add(name)
 
     # 2. Material names: each once, in order of first appearance (a dict or a list with a membership test).
-    material_names = set([c.material for c in components])
-    material_dict = dict.fromkeys(material_names)
+    material_names = list(dict.fromkeys(c.material for c in components))
     # 3. Ids per triangle: for component c with n triangles, n copies of c's index and n copies of its
     #    material's index (np.repeat or np.full, then np.concatenate).
     n_triangles = [c.triangle_vertices_m.shape[0] for c in components]
-    comp_tri_id = np.repeat(np.arange(len(n)), n_triangles)
+    comp_tri_id = np.repeat(np.arange(len(comp_names)), n_triangles)
     mat_tri_id = np.repeat([material_names.index(c.material) for c in components], n_triangles)
     # 4. Concatenate the triangles in component order and build the PanelSet with panel_set_from_triangles.
-    triangles = np.concatentate([c.triangle_vertices_m for c in components], axis = 0)
+    triangles = np.concatenate([c.triangle_vertices_m for c in components], axis = 0)
 
     return panel_set_from_triangles(triangle_vertices_m=triangles, component_ids=comp_tri_id,
-                                    material_ids=mat_tri_id, component_names=list_comp_names,
-                                    maeterial_names=list(material_names), source=source)
+                                    material_ids=mat_tri_id, component_names=tuple(comp_names),
+                                    material_names=tuple(material_names), source=source)
 
 
 def _cells_along(length_m: float, max_edge_length_m: float | None) -> int:
