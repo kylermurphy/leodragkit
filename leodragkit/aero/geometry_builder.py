@@ -12,8 +12,8 @@ Resolution: ``max_edge_length_m`` splits each rectangle into cells no longer tha
 triangles per cell; ``None`` means the coarsest mesh, one cell per face. Finer meshes matter for shadowing,
 where each triangle is wholly lit or wholly shadowed.
 
-Read first: ``Pose`` and ``make_pose``, then ``place_triangles``, then the primitives, then ``Component`` and
-``join_components``.
+Read first: ``Pose``, ``make_pose``, ``turn_pose_about_own_axis`` and ``make_pose_from_rotation``, then
+``place_triangles``, then the primitives, then ``Component`` and ``join_components``.
 """
 
 from collections.abc import Sequence
@@ -21,6 +21,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import ArrayLike
+from scipy.spatial.transform import Rotation
 
 from leodragkit.aero.geometry import PanelSet, panel_set_from_triangles
 from leodragkit.aero.geometry_checks import check_panel_set_orientation
@@ -103,6 +104,54 @@ def make_pose(centre_m: ArrayLike, x_axis: ArrayLike, z_axis: ArrayLike) -> Pose
     x = x / np.linalg.norm(x)
     z = z - np.dot(z, x) * x
     return Pose(centre_m=centre, x_axis=x, z_axis=z / np.linalg.norm(z))
+
+
+def turn_pose_about_own_axis(pose: Pose, rotation_axis: ArrayLike, rotation_angle_deg: float) -> Pose:
+    """Return ``pose`` turned by an angle about one of the component's own axes, keeping its centre.
+
+    ``rotation_axis`` is in the component's own frame as ``pose`` places it: [1, 0, 0] is the component's
+    own x (a plate's first side), [0, 0, 1] its own z (a plate's normal). The sign follows the right-hand
+    rule: with the thumb along the axis, a positive angle turns the way the fingers curl, so +30° about own
+    x turns own +y towards own +z, and own +z towards own −y. The axis may have any non-zero length.
+
+    The new orientation is R_pose · R_turn: first place by ``pose``, then turn about the placed axis. The
+    turn is about the component's centre; turning about a hinge line also moves the centre and is not done
+    here.
+
+    Example::
+
+        facing_x = make_pose([0, 0.2, 0], x_axis=[0, 1, 0], z_axis=[1, 0, 0])   # in the y–z plane, facing +x
+        tilted = turn_pose_about_own_axis(facing_x, rotation_axis=[1, 0, 0], rotation_angle_deg=20)
+        tilted.z_axis   # [0.940, 0, −0.342]: turned about the panel's long side, from +x towards −z
+    """
+    # 1. A finite, non-zero axis and a finite angle.
+    axis = np.asarray(rotation_axis, dtype=float)
+    if axis.shape != (3,) or not np.all(np.isfinite(axis)) or np.linalg.norm(axis) == 0:
+        raise ValueError(f"rotation_axis must be three finite numbers, not all zero; got {rotation_axis!r}.")
+    if not np.isfinite(rotation_angle_deg):
+        raise ValueError(f"rotation_angle_deg must be a finite number, got {rotation_angle_deg!r}.")
+
+    # 2. The turn in the component's own frame, applied after the pose: R = R_pose · R_turn.
+    turn = Rotation.from_rotvec(np.radians(rotation_angle_deg) * axis / np.linalg.norm(axis)).as_matrix()
+    rotation = pose.rotation_matrix @ turn
+
+    # 3. Its first and third columns are the new x and z axes; the centre stays where it was.
+    return make_pose(pose.centre_m, rotation[:, 0], rotation[:, 2])
+
+
+def make_pose_from_rotation(centre_m: ArrayLike, rotation_axis: ArrayLike, rotation_angle_deg: float) -> Pose:
+    """Return the pose of an unrotated component turned by an angle about one axis, centred at ``centre_m``.
+
+    Unrotated, the component's own axes are the body axes, so ``rotation_axis`` here is a body-frame
+    direction as well. This is ``turn_pose_about_own_axis`` applied to an unrotated pose at ``centre_m``.
+
+    Example::
+
+        tilted = make_pose_from_rotation([0, 0.2, 0.12], rotation_axis=[1, 0, 0], rotation_angle_deg=30)
+        tilted.z_axis   # [0, −0.5, 0.866]: the panel's normal, turned from +z towards −y
+    """
+    unrotated = make_pose(centre_m, x_axis=[1.0, 0.0, 0.0], z_axis=[0.0, 0.0, 1.0])
+    return turn_pose_about_own_axis(unrotated, rotation_axis, rotation_angle_deg)
 
 
 def identity_pose() -> Pose:
