@@ -181,25 +181,23 @@ def check_edges(faces: ArrayLike) -> EdgeReport:
         check_edges(faces)   # EdgeReport(is_closed=True, is_consistent=True, problem_triangles=())
     """
     # 1. The 3N directed edges as (start, end) pairs, with the triangle each comes from.
-    d_edges = [[start,end] for triangle in faces for start, end in zip(triangle, np.roll(triangle, -1))] 
+    d_edges = np.asarray(faces)[:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2)
     # 2. Closed: sort each pair to make it undirected; every undirected edge must occur exactly twice
     #    (np.unique with axis=0 and return_counts=True).
     sorted_edges = [sorted(edge) for edge in d_edges]
     _, counts = np.unique(sorted_edges, axis=0, return_counts=True)
-    is_closed = np.all(counts == 2)
+    is_closed = bool(np.all(counts == 2))
     # 3. Consistent: no directed edge may occur twice. If one does, find the two triangles that use it.
-    uniq_edges, uniq_counts = np.unique(d_edges,axis=0, return_counts=True)
-    is_consistent = len(uniq_edges) == len(d_edges)
+    _, inverse, uniq_counts = np.unique(d_edges, axis=0, return_inverse=True, return_counts=True)
+    is_consistent = bool(np.all(uniq_counts == 1))
 
-    dupl_edges = uniq_edges[uniq_counts > 1]
-    if len(dupl_edges) > 0:
-        first_duplicate_val = arr[np.isin(arr, duplicate_vals)][0]
-        all_indices_of_first_duplicate = np.where(arr == first_duplicate_val)[0]
-        problem_trangles = tuple(int(i // 3) for i in all_indices_of_first_duplicate[:2])
-    else:
-        problem_trangles = ()
+    problem_triangles = ()
+    if not is_consistent:
+        first_duplicate = np.flatnonzero(uniq_counts > 1)[0]                   # which unique edge repeats
+        rows = np.flatnonzero(inverse.reshape(-1) == first_duplicate)[:2]      # the rows that hold it
+        problem_triangles = tuple(int(row // 3) for row in rows)               # their triangles
 
-    return EdgeReport(is_closed=is_closed, is_consistent=is_consistent, problem_triangles=problem_trangles)
+    return EdgeReport(is_closed=is_closed, is_consistent=is_consistent, problem_triangles=problem_triangles)
 
 
 def compute_signed_volume_m3(triangle_vertices_m: ArrayLike) -> float:
