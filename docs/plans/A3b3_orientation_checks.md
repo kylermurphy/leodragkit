@@ -1,5 +1,7 @@
 # A3b3: Orientation checks
 
+**Status: done 2026-10-31.** All 206 tests pass; `check_edges` and `compute_signed_volume_m3` written by the user. Finding the first repeated edge's triangles needed `np.unique(..., return_inverse=True)`: `np.isin` compares single numbers, not pairs.
+
 Step plan for task A3b3 in `docs/tasks.md`; part of A3 (`docs/plans/A3_geometry_overview.md`, "Checking that normals point outward"). Mode: the user writes `check_edges` and `compute_signed_volume_m3`; Claude wrote the rest of `geometry_checks.py`, the call in `join_components`, the tests, notebook section 7 and the documentation.
 
 ## Goal

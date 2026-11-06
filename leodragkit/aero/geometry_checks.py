@@ -184,7 +184,7 @@ def check_edges(faces: ArrayLike) -> EdgeReport:
     d_edges = np.asarray(faces)[:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2)
     # 2. Closed: sort each pair to make it undirected; every undirected edge must occur exactly twice
     #    (np.unique with axis=0 and return_counts=True).
-    sorted_edges = [sorted(edge) for edge in d_edges]
+    sorted_edges = np.sort(d_edges, axis=1)
     _, counts = np.unique(sorted_edges, axis=0, return_counts=True)
     is_closed = bool(np.all(counts == 2))
     # 3. Consistent: no directed edge may occur twice. If one does, find the two triangles that use it.
@@ -193,9 +193,9 @@ def check_edges(faces: ArrayLike) -> EdgeReport:
 
     problem_triangles = ()
     if not is_consistent:
-        first_duplicate = np.flatnonzero(uniq_counts > 1)[0]                   # which unique edge repeats
-        rows = np.flatnonzero(inverse.reshape(-1) == first_duplicate)[:2]      # the rows that hold it
-        problem_triangles = tuple(int(row // 3) for row in rows)               # their triangles
+        first_duplicate = np.flatnonzero(uniq_counts > 1)[0]  # which unique edge repeats
+        rows = np.flatnonzero(inverse.reshape(-1) == first_duplicate)[:2]  # the rows that hold it
+        problem_triangles = tuple(int(row // 3) for row in rows)  # their triangles
 
     return EdgeReport(is_closed=is_closed, is_consistent=is_consistent, problem_triangles=problem_triangles)
 
@@ -213,9 +213,10 @@ def compute_signed_volume_m3(triangle_vertices_m: ArrayLike) -> float:
         compute_signed_volume_m3(build_box_triangles(0.1, 0.2, 0.3))   # 0.006
     """
     # 1. The three corners of every triangle (v₀, v₁, v₂), each (N, 3).
-    v0 = triangle_vertices_m[:, 0,:]
-    v1 = triangle_vertices_m[:, 1,:]
-    v2 = triangle_vertices_m[:, 2,:]
+    triangle_vertices_m = np.asarray(triangle_vertices_m, dtype=float)
+    v0 = triangle_vertices_m[:, 0, :]
+    v1 = triangle_vertices_m[:, 1, :]
+    v2 = triangle_vertices_m[:, 2, :]
     # 2. v₀ · (v₁ × v₂) per triangle (np.cross, then a row-wise dot product), summed and divided by 6.
     return float(np.sum(np.einsum("ij,ij->i", v0, np.cross(v1, v2))) / 6.0)
 
