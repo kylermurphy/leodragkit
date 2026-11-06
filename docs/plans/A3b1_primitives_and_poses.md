@@ -1,5 +1,7 @@
 # A3b1: Primitives and poses
 
+**Status: done 2026-10-31.** All 167 tests pass. The user wrote `place_triangles`, `build_plate_triangles` and `build_box_triangles`; Claude wrote `build_cylinder_triangles` at the user's request. The review caught an off-by-one in the plate's cell loop and a doubled sign in the box's negative faces. The cylinder takes its segment index modulo n, so the seam reuses the first segment's exact corners: the template's 0-to-2π angles left `sin(2π)` ≈ −2.4 × 10⁻¹⁶.
+
 Step plan for task A3b1 in `docs/tasks.md`; part of A3 (`docs/plans/A3_geometry_overview.md`). Mode: the user writes the primitive maths and the placing; Claude wrote `Pose`, `make_pose`, the resolution helper, the triangle-edge wireframe in the plot, the tests and the notebook section.
 
 ## Goal

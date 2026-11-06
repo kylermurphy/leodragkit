@@ -30,11 +30,19 @@ Each part works on its own. leodragkit is a refactor of `swift_reentry`, the Swi
 ```bash
 conda env create -f environment.yml
 conda activate leodragkit
-pip install -e .
+pip install -e . --no-deps
 pytest -m "not slow and not network"
 ```
 
-Pinned versions and the reasons for them are in `environment.yml`.
+Pinned versions and the reasons for them are in `environment.yml`. Install leodragkit itself with `--no-deps`, so pip never replaces the numerical libraries conda installed.
+
+### Troubleshooting: the Jupyter kernel dies on Windows
+
+If the kernel dies with exit code 3228369023 (`0xC06D007F`: a DLL loaded but a function it should contain was missing), the numerical libraries in the environment don't match:
+
+1. `conda list | findstr /i "blas mkl"`: `libblas` should be an `openblas` build, with no `mkl` package. If not: `conda install -c conda-forge "libblas=*=*openblas"`.
+2. `conda list | findstr pypi`: only `orekit-jpype`, `jpype1`, `jdk4py`, `orekitdata`, `pymsis` and leodragkit should come from pip. Replace anything else that conda-forge provides (`pip uninstall <name>`, then `conda install -c conda-forge <name>`).
+3. Restart the kernel.
 
 Planned: the separate density-model package (name to be decided) is added to the environment when it exists.
 

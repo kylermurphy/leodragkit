@@ -1,6 +1,6 @@
 # conda env create -f environment.yml
 # conda activate leodragkit
-# pip install -e .
+# pip install -e . --no-deps    (--no-deps: never let pip replace conda's numerical libraries, D-69)
 #
 # Adapted from swift_reentry/environment.yml, keeping only what leodragkit uses.
 # Pins with a recorded reason are set here; record exact versions of the rest after the first build.
@@ -10,6 +10,7 @@ channels:
 dependencies:
   - python=3.12
   - numpy=2.2         # orekit_jpype requires numpy<2.3; pinned here so pip never installs its own wheel
+  - libblas=*=*openblas   # OpenBLAS, not MKL: MKL's run-time DLLs crashed the Jupyter kernel on Windows (D-69)
   - pandas
   - scipy
   - matplotlib

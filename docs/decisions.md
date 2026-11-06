@@ -189,6 +189,21 @@ One step would have been about 350 lines, beyond the per-step limit.
 
 **D-68. Pose axes typed by hand may be rounded: `make_pose` accepts unit length and perpendicularity within 10⁻³, then makes them exact (normalise x, remove x's component from z, normalise z); beyond that it raises. A `Pose` itself insists on exact axes, and y = z × x.** User, 2026-10-30. This is the same rounding allowance as macro-model normals (D-63). Computing y from z and x makes the axes right-handed by construction.
 
+**D-69. The environment uses OpenBLAS, not MKL (`libblas=*=*openblas` in `environment.yml`), and leodragkit is installed with `pip install -e . --no-deps`.** User, 2026-10-31.
+
+- **Evidence.** The Jupyter kernel on the user's Windows machine died with exit code 3228369023 (`0xC06D007F`, a function missing from a DLL loaded at run time) at the notebook's first matrix product. The same product ran from the terminal. Replacing a PyPI scipy with conda-forge's did not help; switching `libblas` from MKL to OpenBLAS did. MKL loads a separate OpenMP library at run time; OpenBLAS carries its own threading.
+- **Why `--no-deps`.** It stops pip from installing its own copies of numerical packages (scipy, pyarrow) over conda's, which is how the environment became mixed.
+- **Cost.** OpenBLAS is as fast as MKL for leodragkit's work, whose matrices are 3 × 3; heavy numerics run in Orekit (Java).
+
+The README has a troubleshooting note.
+
+**D-70. A `Component` is one named part with one material, holding triangles already placed in the body frame; `join_components` joins them into one `PanelSet` with an explicit `source`.** User, 2026-10-31.
+
+- A part with two materials becomes two components; per-face materials can come later if a real spacecraft needs them.
+- Component names must be unique, and materials are listed once in order of first appearance.
+- Poses are applied before joining, so joining never deals with poses.
+- A required `source` keeps provenance explicit (D-15). This was the recommendation; the user answered the first two questions and not this one, so it can be revisited.
+
 ## Licence
 
 **D-32. leodragkit is released under the MIT licence.** User, 2026-10-27. This is compatible with D-28: the aero code is written from the published equations, and ADBSat's GPL-3 code is used only as a test oracle, never copied or translated.
