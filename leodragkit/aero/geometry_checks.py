@@ -19,14 +19,13 @@ Read first: ``check_component``, then ``check_panel_set_orientation``.
 """
 
 import html
-import sys
-import warnings
 from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import ArrayLike
 
 from leodragkit.aero.geometry import PanelSet
+from leodragkit.aero.repeated_warnings import warn_every_time
 
 # Corners closer than this fraction of a component's largest dimension are the same corner.
 WELD_RELATIVE_TOLERANCE = 1e-9
@@ -302,11 +301,12 @@ def check_panel_set_orientation(panel_set: PanelSet) -> GeometrySummary:
                 if len(check.inward_facing_panels) <= 10
                 else f" and {len(check.inward_facing_panels) - 10} more"
             )
-            _warn_every_time(
+            warn_every_time(
                 f"{panel_set.source}: component {check.name!r} is one-sided and "
                 f"{len(check.inward_facing_panels)} of its panels face the spacecraft's centre (panels "
                 f"{panels}{more}). If it should face outward, turn its pose's z axis round; if it is exposed "
                 "on both sides, build it two-sided.",
+                GeometryOrientationWarning,
                 caller_depth=2,
             )
     return GeometrySummary(source=panel_set.source, checks=checks)
@@ -351,18 +351,6 @@ def _check_every_component(panel_set: PanelSet, *, raise_on_failure: bool) -> li
                 check = ComponentCheck(**{**check.__dict__, "inward_facing_panels": flagged})
         checks.append(check)
     return checks
-
-
-def _warn_every_time(message: str, caller_depth: int) -> None:
-    """Issue a ``GeometryOrientationWarning`` that Python will not suppress as a repeat.
-
-    ``warnings.warn`` shows a warning only the first time it comes from a given line; a spacecraft rebuilt in
-    a notebook would then warn once and stay silent. ``warn_explicit`` with no registry has no memory of
-    earlier warnings, but still obeys warning filters, so "error" and "ignore" filters work as usual. The
-    warning is attributed to the caller ``caller_depth`` frames up, so it points at the user's code.
-    """
-    frame = sys._getframe(caller_depth + 1)
-    warnings.warn_explicit(message, GeometryOrientationWarning, frame.f_code.co_filename, frame.f_lineno)
 
 
 def _is_two_sided(faces: np.ndarray) -> bool:
