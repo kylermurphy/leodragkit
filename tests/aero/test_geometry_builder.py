@@ -21,7 +21,9 @@ from leodragkit.aero.geometry_builder import (
     identity_pose,
     join_components,
     make_pose,
+    make_pose_from_rotation,
     place_triangles,
+    turn_pose_about_own_axis,
 )
 
 
@@ -76,6 +78,60 @@ def test_axes_that_are_not_nearly_unit_and_perpendicular_raise(x_axis, z_axis, m
 def test_a_pose_built_directly_must_be_exact():
     with pytest.raises(ValueError, match="make_pose"):
         Pose(centre_m=np.zeros(3), x_axis=np.array([1.0, 0, 0]), z_axis=np.array([0, 0.7071, 0.7071]))
+
+
+# --- make_pose_from_rotation (A3c) -------------------------------------------------------------
+
+
+def test_a_positive_rotation_about_x_turns_z_towards_minus_y():
+    # Right-hand rule: thumb along +x, fingers turn +y towards +z and +z towards −y.
+    pose = make_pose_from_rotation([0, 0, 0], rotation_axis=[1, 0, 0], rotation_angle_deg=30)
+    np.testing.assert_allclose(pose.z_axis, [0.0, -0.5, np.sqrt(3) / 2], atol=1e-15)
+    np.testing.assert_allclose(pose.x_axis, [1.0, 0.0, 0.0], atol=1e-15)
+
+
+def test_a_rotation_matches_the_same_orientation_written_as_axes():
+    rotated = make_pose_from_rotation([0.1, 0.2, 0.3], rotation_axis=[0, 0, 1], rotation_angle_deg=90)
+    written = make_pose([0.1, 0.2, 0.3], x_axis=[0, 1, 0], z_axis=[0, 0, 1])
+    np.testing.assert_allclose(rotated.rotation_matrix, written.rotation_matrix, atol=1e-15)
+    np.testing.assert_allclose(rotated.centre_m, written.centre_m)
+
+
+def test_the_rotation_axis_may_have_any_length():
+    short = make_pose_from_rotation([0, 0, 0], rotation_axis=[1, 1, 0], rotation_angle_deg=40)
+    long = make_pose_from_rotation([0, 0, 0], rotation_axis=[5, 5, 0], rotation_angle_deg=40)
+    np.testing.assert_allclose(short.rotation_matrix, long.rotation_matrix, atol=1e-15)
+
+
+def test_a_turn_is_about_the_parts_own_axis_after_placing_it():
+    # In the y–z plane facing +x (own x along body y), then +20° about own x (its long side): the normal
+    # turns from +x towards −z, the long side stays along y, and the centre stays put.
+    facing_x = make_pose([0, 0.2, 0], x_axis=[0, 1, 0], z_axis=[1, 0, 0])
+    tilted = turn_pose_about_own_axis(facing_x, rotation_axis=[1, 0, 0], rotation_angle_deg=20)
+    angle = np.radians(20)
+    np.testing.assert_allclose(tilted.z_axis, [np.cos(angle), 0.0, -np.sin(angle)], atol=1e-15)
+    np.testing.assert_allclose(tilted.x_axis, [0.0, 1.0, 0.0], atol=1e-15)
+    np.testing.assert_allclose(tilted.centre_m, [0.0, 0.2, 0.0])
+
+
+def test_turning_an_unrotated_pose_is_the_rotation_form():
+    unrotated = make_pose([0.1, 0.2, 0.3], x_axis=[1, 0, 0], z_axis=[0, 0, 1])
+    turned = turn_pose_about_own_axis(unrotated, rotation_axis=[1, 1, 0], rotation_angle_deg=40)
+    rotated = make_pose_from_rotation([0.1, 0.2, 0.3], rotation_axis=[1, 1, 0], rotation_angle_deg=40)
+    np.testing.assert_allclose(turned.rotation_matrix, rotated.rotation_matrix, atol=1e-15)
+
+
+def test_a_turn_about_the_normal_spins_a_plate_in_its_own_plane():
+    facing_x = make_pose([0, 0, 0], x_axis=[0, 1, 0], z_axis=[1, 0, 0])
+    spun = turn_pose_about_own_axis(facing_x, rotation_axis=[0, 0, 1], rotation_angle_deg=90)
+    np.testing.assert_allclose(spun.z_axis, [1, 0, 0], atol=1e-15)  # still facing +x
+    np.testing.assert_allclose(spun.x_axis, [0, 0, 1], atol=1e-15)  # first side now along body z
+
+
+@pytest.mark.parametrize(("axis", "angle"), [([0, 0, 0], 30), ([1, 0], 30), ([1, 0, 0], float("nan"))])
+def test_a_zero_or_malformed_rotation_raises(axis, angle):
+    with pytest.raises(ValueError, match="rotation"):
+        make_pose_from_rotation([0, 0, 0], rotation_axis=axis, rotation_angle_deg=angle)
 
 
 # --- place_triangles ----------------------------------------------------------------------------
