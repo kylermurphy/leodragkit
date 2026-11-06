@@ -204,6 +204,15 @@ The README has a troubleshooting note.
 - Poses are applied before joining, so joining never deals with poses.
 - A required `source`, with no default, keeps provenance explicit (D-15).
 
+**D-71. How the orientation checks of D-66 are built and reported.** User, 2026-10-31.
+
+- **Where they run.** `join_components` runs them on every component, raising on a strict failure (closed and inconsistent, or closed with non-positive volume).
+- **The heuristic.** It applies only to one-sided open components, and flags a component when at least 90% of its area (`INWARD_AREA_FRACTION_FOR_WARNING`) faces the spacecraft's area-weighted centre. A first version flagged every such panel; in testing it flagged half of an open tube (an antenna) beside the bus, by the tube's shape. A plate typed the wrong way round has all its area facing the centre.
+- **Two-sided components** (every triangle has a reversed twin) are exempt.
+- **The warning.** `GeometryOrientationWarning` is issued through `warnings.warn_explicit` with no registry, so it is shown every time rather than only once per line, and it still obeys filters (`warnings.simplefilter("error", GeometryOrientationWarning)` makes it an error). A global "always" filter was tried first; pytest and other tools reset filters, so it was unreliable.
+- **Welding** rounds corners to a grid of 10⁻⁹ × the component's size.
+- **`summarise_geometry`** returns plain dataclasses, with no pandas in `aero` (D-04). It prints as a text table, shows as an HTML table in Jupyter with rows needing attention shaded, and gives `rows()` for a DataFrame.
+
 ## Licence
 
 **D-32. leodragkit is released under the MIT licence.** User, 2026-10-27. This is compatible with D-28: the aero code is written from the published equations, and ADBSat's GPL-3 code is used only as a test oracle, never copied or translated.
