@@ -1,4 +1,5 @@
-"""Tests for primitives and poses (task A3b1): plates, boxes, cylinders, placing, and resolution.
+"""Tests for primitives, poses and joining (tasks A3b1, A3b2): plates, boxes, cylinders, placing, resolution,
+and components joined into one PanelSet.
 
 Areas and normals are checked against hand formulas; every closed primitive is checked with trimesh
 (skipped when it is not installed) for a watertight, consistently wound surface enclosing the right volume.
@@ -9,14 +10,16 @@ Run: ``pytest tests/aero/test_geometry_builder.py``
 import numpy as np
 import pytest
 
-from leodragkit.aero.geometry import compute_triangle_properties
+from leodragkit.aero.geometry import compute_triangle_properties, panel_set_from_triangles
 from leodragkit.aero.geometry_builder import (
     MINIMUM_CYLINDER_SEGMENTS,
+    Component,
     Pose,
     build_box_triangles,
     build_cylinder_triangles,
     build_plate_triangles,
     identity_pose,
+    join_components,
     make_pose,
     place_triangles,
 )
@@ -210,3 +213,87 @@ def test_an_uncapped_cylinder_is_open_and_a_capped_one_is_closed():
     assert not mesh.is_watertight
     prism_volume = n * 0.5 * radius**2 * np.sin(2 * np.pi / n) * height  # the faceted cylinder is a prism
     assert_closed_and_outward(build_cylinder_triangles(radius, height), expected_volume_m3=prism_volume)
+
+
+# --- Component and join_components (A3b2) ------------------------------------------------------
+
+
+def two_part_spacecraft():
+    """A bus (12 triangles) and a two-sided panel (4 triangles) placed beside it."""
+    bus = Component("bus", "aluminium", build_box_triangles(0.1, 0.1, 0.34))
+    panel_pose = make_pose([0.0, 0.2, 0.0], [0, 1, 0], [1, 0, 0])
+    panel = Component(
+        "panel_plus_y",
+        "solar_cell",
+        place_triangles(build_plate_triangles(0.3, 0.1, two_sided=True), panel_pose),
+    )
+    return bus, panel
+
+
+def test_joining_keeps_every_triangle_in_component_order_with_its_ids():
+    bus, panel = two_part_spacecraft()
+    spacecraft = join_components([bus, panel], source="two-part test spacecraft")
+    assert spacecraft.panel_count == 12 + 4
+    assert spacecraft.component_names == ("bus", "panel_plus_y")
+    assert spacecraft.material_names == ("aluminium", "solar_cell")
+    np.testing.assert_array_equal(spacecraft.component_ids, [0] * 12 + [1] * 4)
+    np.testing.assert_array_equal(spacecraft.material_ids, [0] * 12 + [1] * 4)
+    np.testing.assert_allclose(spacecraft.triangle_vertices_m[:12], bus.triangle_vertices_m)
+    np.testing.assert_allclose(spacecraft.triangle_vertices_m[12:], panel.triangle_vertices_m)
+    assert spacecraft.source == "two-part test spacecraft"
+
+
+def test_components_of_one_material_share_its_id_and_materials_keep_first_appearance_order():
+    bus, panel = two_part_spacecraft()
+    antenna = Component("antenna", "aluminium", build_cylinder_triangles(0.005, 0.2, capped=False))
+    spacecraft = join_components([panel, bus, antenna], source="three parts")
+    assert spacecraft.material_names == ("solar_cell", "aluminium")
+    counts = [len(panel.triangle_vertices_m), len(bus.triangle_vertices_m), len(antenna.triangle_vertices_m)]
+    np.testing.assert_array_equal(spacecraft.material_ids, [0] * counts[0] + [1] * (counts[1] + counts[2]))
+    np.testing.assert_array_equal(spacecraft.component_ids, np.repeat([0, 1, 2], counts))
+
+
+def test_the_joined_area_is_the_sum_of_the_parts():
+    bus, panel = two_part_spacecraft()
+    spacecraft = join_components([bus, panel], source="two parts")
+    expected = 2 * (0.1 * 0.1 + 2 * 0.1 * 0.34) + 2 * 0.3 * 0.1  # box, plus a panel counted on both sides
+    assert spacecraft.areas_m2.sum() == pytest.approx(expected)
+
+
+def test_joining_one_component_matches_building_the_panel_set_directly():
+    bus, _ = two_part_spacecraft()
+    joined = join_components([bus], source="bus only")
+    direct = panel_set_from_triangles(
+        bus.triangle_vertices_m, [0] * 12, [0] * 12, ("bus",), ("aluminium",), "bus only"
+    )
+    for field in ("outward_normals", "areas_m2", "centroids_m", "component_ids", "material_ids"):
+        np.testing.assert_array_equal(getattr(joined, field), getattr(direct, field))
+
+
+def test_a_repeated_component_name_raises_naming_it():
+    bus, _ = two_part_spacecraft()
+    with pytest.raises(ValueError, match="bus"):
+        join_components([bus, bus], source="twice")
+
+
+@pytest.mark.parametrize(("components", "source"), [([], "nothing"), (None, "")])
+def test_no_components_or_an_empty_source_raises(components, source):
+    if components is None:
+        components = [two_part_spacecraft()[0]]
+    with pytest.raises(ValueError):
+        join_components(components, source=source)
+
+
+@pytest.mark.parametrize(
+    ("name", "material", "triangles", "message"),
+    [
+        ("", "aluminium", np.zeros((1, 3, 3)), "name"),
+        ("bus", "", np.zeros((1, 3, 3)), "material"),
+        ("bus", "aluminium", np.zeros((1, 3)), "shape"),
+        ("bus", "aluminium", np.zeros((0, 3, 3)), "shape"),
+        ("bus", "aluminium", np.full((1, 3, 3), np.nan), "finite"),
+    ],
+)
+def test_an_invalid_component_raises_naming_the_problem(name, material, triangles, message):
+    with pytest.raises(ValueError, match=message):
+        Component(name, material, triangles)
