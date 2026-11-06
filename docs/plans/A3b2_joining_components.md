@@ -1,5 +1,7 @@
 # A3b2: Joining components into one `PanelSet`
 
+**Status: done 2026-10-31.** All 179 tests pass, none skipped once trimesh was reinstalled; `join_components` written by the user. The first version used a `set` for the materials (no order, no `.index`) and had three name slips; all caught by the tests.
+
 Step plan for task A3b2 in `docs/tasks.md`; part of A3 (`docs/plans/A3_geometry_overview.md`). Mode: the user writes `join_components`; Claude wrote `Component`, the tests, notebook section 6 and the documentation.
 
 ## Goal

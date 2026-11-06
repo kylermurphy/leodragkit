@@ -382,11 +382,16 @@ def join_components(components: Sequence[Component], source: str) -> PanelSet:
     comp_tri_id = np.repeat(np.arange(len(comp_names)), n_triangles)
     mat_tri_id = np.repeat([material_names.index(c.material) for c in components], n_triangles)
     # 4. Concatenate the triangles in component order and build the PanelSet with panel_set_from_triangles.
-    triangles = np.concatenate([c.triangle_vertices_m for c in components], axis = 0)
+    triangles = np.concatenate([c.triangle_vertices_m for c in components], axis=0)
 
-    return panel_set_from_triangles(triangle_vertices_m=triangles, component_ids=comp_tri_id,
-                                    material_ids=mat_tri_id, component_names=tuple(comp_names),
-                                    material_names=tuple(material_names), source=source)
+    return panel_set_from_triangles(
+        triangle_vertices_m=triangles,
+        component_ids=comp_tri_id,
+        material_ids=mat_tri_id,
+        component_names=tuple(comp_names),
+        material_names=tuple(material_names),
+        source=source,
+    )
 
 
 def _cells_along(length_m: float, max_edge_length_m: float | None) -> int:

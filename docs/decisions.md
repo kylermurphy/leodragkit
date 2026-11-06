@@ -202,7 +202,7 @@ The README has a troubleshooting note.
 - A part with two materials becomes two components; per-face materials can come later if a real spacecraft needs them.
 - Component names must be unique, and materials are listed once in order of first appearance.
 - Poses are applied before joining, so joining never deals with poses.
-- A required `source` keeps provenance explicit (D-15). This was the recommendation; the user answered the first two questions and not this one, so it can be revisited.
+- A required `source`, with no default, keeps provenance explicit (D-15).
 
 ## Licence
 
