@@ -1,0 +1,47 @@
+# A 3U CubeSat with two deployed solar panels and a whip antenna: an example spacecraft description.
+# How to write one, with worked examples of placing parts: docs/guides/describing_a_spacecraft.md
+#
+# Body frame: the bus's long axis is z; the panels are deployed sideways (±y) from its top end and face
+# ±x (two-sided); the antenna hangs below the bus along −z. Lengths in metres.
+
+name: 3U CubeSat with deployed panels (example)
+mass_kg: 4.0
+max_edge_length_m: 0.02          # resolution for every component; null gives the coarsest mesh
+
+materials:
+  aluminium:
+    wall_temperature_kelvin: 300.0
+    energy_accommodation: 0.9
+  solar_cell:
+    wall_temperature_kelvin: 300.0
+    energy_accommodation: 0.9
+
+components:
+  - name: bus
+    shape: box
+    size_m: [0.1, 0.1, 0.34]
+    material: aluminium
+    pose: {centre_m: [0, 0, 0], x_axis: [1, 0, 0], z_axis: [0, 0, 1]}
+
+  - name: panel_plus_y           # own x (0.3 m) along body +y, normal along +x
+    shape: plate
+    size_m: [0.3, 0.1]
+    two_sided: true
+    material: solar_cell
+    pose: {centre_m: [0, 0.2, 0.12], x_axis: [0, 1, 0], z_axis: [1, 0, 0]}
+
+  - name: panel_minus_y
+    shape: plate
+    size_m: [0.3, 0.1]
+    two_sided: true
+    material: solar_cell
+    pose: {centre_m: [0, -0.2, 0.12], x_axis: [0, -1, 0], z_axis: [1, 0, 0]}
+
+  - name: antenna                # an open tube; finer than the default so its 5 mm radius is resolved
+    shape: cylinder
+    radius_m: 0.005
+    height_m: 0.2
+    capped: false
+    max_edge_length_m: 0.01
+    material: aluminium
+    pose: {centre_m: [0, 0, -0.27], rotation_axis: [0, 0, 1], rotation_angle_deg: 0}

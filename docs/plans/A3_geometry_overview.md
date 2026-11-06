@@ -11,7 +11,7 @@ A3 builds everything that turns a description of a spacecraft into the one geome
 | A3b1 | primitives in their own frame (plate, box, cylinder) as outward triangles at a chosen resolution; `Pose` and placing; the triangle-edge wireframe in the plot | `aero/geometry_builder.py`, `plots/spacecraft.py` | `Pose`, `make_pose`, `place_triangles`, `build_plate_triangles`, `build_box_triangles`, `build_cylinder_triangles` | A3a, A3p |
 | A3b2 | joining placed components into one `PanelSet`: merged names, renumbered ids | `aero/geometry_builder.py` | `join_components` | A3b1 |
 | A3b3 | the orientation checks (closed, consistent, positive signed volume, the facing-the-body heuristic) and `summarise_geometry` | `aero/geometry_checks.py` | the checks; `summarise_geometry` | A3b2 |
-| A3c | materials, and YAML component descriptions → `PanelSet` | `aero/materials.py`, `aero/geometry_builder.py`, `io/geometry_files.py` | `SurfaceMaterial`; `build_panel_set_from_description`; `read_component_description_file` | A3b |
+| A3c | materials, and YAML spacecraft descriptions → `Spacecraft`; the rotation form of a pose; the user guide | `aero/materials.py`, `aero/spacecraft.py`, `aero/geometry_builder.py`, `io/geometry_files.py` | `SurfaceMaterial`; `Spacecraft`, `build_spacecraft`; `make_pose_from_rotation`; `read_spacecraft_description_file` | A3b3 |
 | A3d | macro-model tables and STL/OBJ meshes → `PanelSet` | `io/geometry_files.py`, `io/mesh_files.py` | `read_macro_model_file`; `read_stl_file`, `read_obj_file` | A3a |
 
 ```mermaid

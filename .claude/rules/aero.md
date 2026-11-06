@@ -32,7 +32,7 @@ paths:
 - A triangle's outward normal follows its corner order: counter-clockwise when seen from outside, so n̂ = (v₁ − v₀) × (v₂ − v₀) / |…|. STL files also store a normal per triangle; if it disagrees with the corner order, raise (D-58).
 - Degenerate triangles (zero area) raise; they are never dropped silently.
 - Outward orientation is checked per component (D-66, `docs/plans/A3_geometry_overview.md`). A closed component must be consistent and have positive signed volume, or raise; `reverse_winding=True` is the only fix, and it is recorded. Open plates are built from their declared normal. A panel facing the body centre from outside is a warning, never an error.
-- A component's pose in a YAML description is a centre plus the component's x and z axes in the body frame, never Euler angles (D-58).
+- A component's pose in a YAML description is a centre plus the component's x and z axes, a turn (`rotation_axis`, `rotation_angle_deg`, right-hand rule, axis in the part's own frame), or both: axes, then the turn about the placed own axis. Never Euler angles (D-58, D-73, D-76). Every component has a pose.
 - Reading a mesh needs its length unit as a required argument, with no default: STL files carry no units, and CAD exports are often in millimetres (D-58).
 - Materials hold only what a built task uses: name, wall temperature and energy accommodation until A9 and A10 add more (D-59).
 

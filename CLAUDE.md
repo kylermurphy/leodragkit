@@ -155,6 +155,7 @@ Updated in the same step as the code:
 - `docs/code_tour.md`: a reading guide, module by module, in reading order;
 - `docs/decisions.md`: every science or design decision, dated, never edited afterwards (supersede instead);
 - `docs/results_log.md`: every reported or acted-on run, with an id that docs and decisions cite;
+- `docs/guides/`: how-to guides for users, such as describing a spacecraft; updated with the format they describe (D-74);
 - `docs/methods/`: method write-ups (for example the drag-coefficient primer), with no run results;
 - `notebooks/aero_tutorial.ipynb` (and one per later track): a running tutorial; every step adds a section showing what its code produces; commit with outputs cleared (D-65);
 - `docs/plans/`: one working plan per step (`<task id>_<topic>.md`): goal, files, required reading, work order, tests, traps and when it is done (D-51);

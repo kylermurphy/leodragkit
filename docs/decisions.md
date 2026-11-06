@@ -213,6 +213,33 @@ The README has a troubleshooting note.
 - **Welding** rounds corners to a grid of 10⁻⁹ × the component's size.
 - **`summarise_geometry`** returns plain dataclasses, with no pandas in `aero` (D-04). It prints as a text table, shows as an HTML table in Jupyter with rows needing attention shaded, and gives `rows()` for a DataFrame.
 
+**D-72. A spacecraft is described as a mapping (usually a YAML file), checked and built by `aero/spacecraft.py` into a `Spacecraft`: name, `mass_kg`, `panel_set`, and `materials` aligned with the panel set's material names.** User, 2026-10-31.
+
+- **Required keys:** `name`, `mass_kg`, `max_edge_length_m` (may be null, for the coarsest mesh), `materials` and `components`.
+- **Shapes:** each component is a `box`, `plate` or `cylinder`, with exactly the keys its shape allows, a defined material, an optional resolution override, and a pose.
+- **Errors** name their place in the description (for example `components[1] (panel_plus_y)`), and report missing and unknown keys together, so a misspelt key reads as both.
+- **Where parsing happens.** aero never parses files (D-04): `io/geometry_files.py` reads the YAML.
+- **Mass is required**, because B = Cd·A/m needs it and it belongs with the description.
+
+**D-73. Every component has a pose, with no implicit default; a pose is `centre_m` plus exactly one orientation form.** User, 2026-10-31. The two forms: *Its "exactly one orientation form" is superseded by D-76.*
+
+- **axes:** `x_axis` and `z_axis`, as in D-58;
+- **rotation:** `rotation_axis` and `rotation_angle_deg`, a single rotation of the unrotated part by the right-hand rule (`make_pose_from_rotation`, using scipy's `Rotation.from_rotvec`).
+
+A single rotation about one axis avoids the ordering ambiguity of Euler angles, which D-58 rejected; the axis may have any length. Hinged deployment (rotation about a hinge line) waits for articulation (A13).
+
+**D-74. User-facing how-to guides live in `docs/guides/`, starting with `describing_a_spacecraft.md`, and are updated whenever the format they describe changes.** User, 2026-10-31. The guide covers frames, shapes, poses (plates in each plane, tilts, the rotation form), one or two sides, resolution, materials, the file format, the checks and their messages. The step plans record how something was built; the guides tell a newcomer how to use it.
+
+**D-75. Materials defined in a description but used by no component are left out of the `Spacecraft`, with a `SpacecraftDescriptionWarning` naming them, shown every time.** User, 2026-10-31. Unused definitions are harmless (a shared materials block can be copied between files), but an unused material may mean a misspelt `material` name. The warning uses the same never-hidden mechanism as `GeometryOrientationWarning`, now shared in `aero/repeated_warnings.py`.
+
+**D-76. A pose may combine both forms: orient by `x_axis` and `z_axis`, then turn by `rotation_angle_deg` about `rotation_axis`, given in the part's own frame as placed by the axes.** User, 2026-10-31. Supersedes D-73's "exactly one orientation form".
+
+- **The three combinations:** axes; turn; or axes then turn.
+- **Each pair must be complete.**
+- **Mathematically** the orientation is R_axes · R_turn (`turn_pose_about_own_axis`); the turn is about the part's centre.
+- **Why the own frame.** It makes "tilt this panel about its own long side" one line, without working out where that side ended up. With no axes the part starts unrotated, its own frame is the body frame, and the turn-only form keeps its meaning. Rejected: a body-frame rotation axis, which would make "about its own edge" need the edge's body direction.
+- **Hinges** (turning about a hinge line, which moves the centre) wait for A13.
+
 ## Licence
 
 **D-32. leodragkit is released under the MIT licence.** User, 2026-10-27. This is compatible with D-28: the aero code is written from the published equations, and ADBSat's GPL-3 code is used only as a test oracle, never copied or translated.

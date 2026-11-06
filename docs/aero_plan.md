@@ -35,7 +35,8 @@ All in `leodragkit/aero/`, one level deep. Gas-surface models share the prefix `
 | `gas_surface_sentman.py` | Sentman plate: reflected-speed ratio, pressure, shear and drag coefficients | A1 |
 | `geometry.py` | `PanelSet`: per-panel normals, areas, component and material ids; centroids and triangles when known; validation | A3 |
 | `geometry_builder.py` | primitives (plate, box, cylinder) as triangles with a resolution setting; component descriptions and macro-model tables → `PanelSet` | A3 |
-| `materials.py` | surface properties per material: wall temperature, accommodation parameters, surface-atom mass | A3 |
+| `materials.py` | `SurfaceMaterial`: wall temperature and accommodation; surface-atom mass and CLL coefficients added by A9 and A10 | A3c |
+| `spacecraft.py` | `Spacecraft` (panels, materials, mass) built from a checked description; YAML read in `io/geometry_files.py` | A3c |
 | `frames.py` | `Attitude` and its construction from quaternions (Q-13); a simple velocity-and-nadir attitude law; component poses; `PanelFlowGeometry` | A4 |
 | `flow_conditions.py` | `AeroAtmosphere` (aero's atmosphere input) and `FlowConditions` (speed ratios per species, mass fractions) | A4 |
 | `accommodation.py` | `SurfaceInteraction`: constant values first, Walker/Langmuir surface coverage later | A5 (constant), A9 (Walker) |

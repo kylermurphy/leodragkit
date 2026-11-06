@@ -138,6 +138,7 @@ leodragkit/
 | Document | Contents |
 |---|---|
 | [`docs/tasks.md`](docs/tasks.md) | the order of work and its status |
+| [`docs/guides/describing_a_spacecraft.md`](docs/guides/describing_a_spacecraft.md) | how to describe a spacecraft: shapes, placing and turning parts, the YAML format, the checks |
 | [`notebooks/aero_tutorial.ipynb`](notebooks/aero_tutorial.ipynb) | running tutorial: building and plotting a spacecraft, one section per aero task |
 | [`docs/aero_plan.md`](docs/aero_plan.md) | how the aero module grows: models, geometry, shadowing, outputs, validation |
 | [`docs/decisions.md`](docs/decisions.md) | every design and science decision, with its reason (D-NN) and open questions (Q-NN) |
