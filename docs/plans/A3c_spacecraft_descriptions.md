@@ -1,5 +1,7 @@
 # A3c: Spacecraft descriptions (materials, YAML, poses)
 
+**Status: done 2026-11-01.** All 242 tests pass; `_build_component` written by the user as three plain branches, one per shape, and the `PRIMITIVE_BUILDERS` table it replaced was removed. Poses gained a third form during the step: axes, then a turn about the part's own axis (D-76).
+
 Step plan for task A3c in `docs/tasks.md`; part of A3 (`docs/plans/A3_geometry_overview.md`). Mode: the user writes `_build_component`; Claude wrote the rest: materials, `Spacecraft`, the description checks, the rotation form of a pose, the io reader, the example file, the guide, the tests, notebook sections 8 and 9, and the documentation.
 
 ## Goal

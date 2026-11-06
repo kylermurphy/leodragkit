@@ -180,9 +180,9 @@ def _build_component(entry: Mapping, default_resolution_m: float | None) -> Comp
     """
     # 1. The resolution: the entry's own max_edge_length_m if it has one, else the default.
     res_m = entry.get("max_edge_length_m", default_resolution_m)
-    # 2. The triangles in the primitive's own frame, with PRIMITIVE_BUILDERS[entry["shape"]] and the shape's
-    #    arguments: box → *size_m; plate → *size_m and two_sided (default False); cylinder → radius_m,
-    #    height_m and capped (default True); every shape → max_edge_length_m=the resolution.
+    # 2. The triangles in the primitive's own frame, by shape (the checks guarantee a known shape):
+    #    box → *size_m; plate → *size_m and two_sided (default False);
+    #    cylinder → radius_m, height_m and capped (default True).
     if entry["shape"] == "box":
         triangles_m = build_box_triangles(*entry["size_m"], max_edge_length_m=res_m)
     elif entry["shape"] == "plate":
@@ -190,14 +190,14 @@ def _build_component(entry: Mapping, default_resolution_m: float | None) -> Comp
             *entry["size_m"], two_sided=entry.get("two_sided", False), max_edge_length_m=res_m
         )
     else:
-        triangles_m = build_cylinder_triangles(entry["radius_m"], entry["height_m"],
-                                               max_edge_length_m=res_m,
-                                               capped=entry.get("capped", True))
+        triangles_m = build_cylinder_triangles(
+            entry["radius_m"], entry["height_m"], max_edge_length_m=res_m, capped=entry.get("capped", True)
+        )
 
-    # 3. The pose: _pose_from_entry(entry["pose"]).
-    pose =  _pose_from_entry(entry["pose"])
+    # 3. The pose, in any of its three forms.
+    pose = _pose_from_entry(entry["pose"])
     # 4. Place the triangles and wrap them in a Component(name, material, triangles).
-    return Component(entry["name"], entry["material"],place_triangles(triangles_m, pose))
+    return Component(entry["name"], entry["material"], place_triangles(triangles_m, pose))
 
 
 def _pose_from_entry(pose: Mapping) -> Pose:
