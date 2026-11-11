@@ -40,6 +40,8 @@ SHAPE_KEYS = {  # required keys, optional keys
     "box": ({"size_m"}, set()),
     "plate": ({"size_m"}, {"two_sided"}),
     "cylinder": ({"radius_m", "height_m"}, {"capped"}),
+    # A mesh names its file; leodragkit.io.geometry_files.load_spacecraft_description adds the last two keys.
+    "mesh": ({"file", "length_unit"}, {"reverse_winding", "triangle_vertices_m", "mesh_source"}),
 }
 SIZE_LENGTHS = {"box": 3, "plate": 2}
 AXES_POSE_KEYS = {"centre_m", "x_axis", "z_axis"}
@@ -158,6 +160,28 @@ def build_spacecraft(description: Mapping, source: str) -> Spacecraft:
     )
 
 
+def build_spacecraft_from_triangles(
+    triangle_vertices_m: np.ndarray, *, name: str, material: SurfaceMaterial, mass_kg: float, source: str
+) -> Spacecraft:
+    """A one-component spacecraft straight from triangles, such as a mesh read with ``leodragkit.io``.
+
+    For a quick look at a mesh file without writing a description. The triangles are checked like any
+    component (orientation, A3b3).
+
+    Example::
+
+        mesh = read_stl_file("champ.stl", length_unit="mm")
+        champ = build_spacecraft_from_triangles(
+            mesh.triangle_vertices_m, name="champ", material=aluminium, mass_kg=522.0, source=mesh.source
+        )
+    """
+    component = Component(name, material.name, np.asarray(triangle_vertices_m, dtype=float))
+    panel_set = join_components([component], source=source)
+    return Spacecraft(
+        name=name, mass_kg=_positive_number(mass_kg, "mass_kg"), panel_set=panel_set, materials=(material,)
+    )
+
+
 def _build_component(entry: Mapping, default_resolution_m: float | None) -> Component:
     """Build one checked component entry: its primitive, at its resolution, placed at its pose.
 
@@ -185,6 +209,10 @@ def _build_component(entry: Mapping, default_resolution_m: float | None) -> Comp
     #    cylinder → radius_m, height_m and capped (default True).
     if entry["shape"] == "box":
         triangles_m = build_box_triangles(*entry["size_m"], max_edge_length_m=res_m)
+    elif (
+        entry["shape"] == "mesh"
+    ):  # already read, in metres, by io.geometry_files.load_spacecraft_description
+        triangles_m = np.asarray(entry["triangle_vertices_m"], dtype=float)
     elif entry["shape"] == "plate":
         triangles_m = build_plate_triangles(
             *entry["size_m"], two_sided=entry.get("two_sided", False), max_edge_length_m=res_m
@@ -237,8 +265,18 @@ def _check_component_entry(entry: Mapping, materials: Mapping, where: str) -> No
             f"{where}: material {entry['material']!r} is not defined; defined: {sorted(materials)}."
         )
 
-    # 3. Sizes, by shape.
-    if shape in SIZE_LENGTHS:
+    # 3. Sizes, by shape; a mesh instead needs its triangles, loaded from its file.
+    if shape == "mesh":
+        if "triangle_vertices_m" not in entry:
+            raise ValueError(
+                f"{where}: a mesh component's file has not been read. Load the description with "
+                "leodragkit.io.geometry_files.load_spacecraft_description, which reads mesh files."
+            )
+        if "max_edge_length_m" in entry:
+            raise ValueError(
+                f"{where}: max_edge_length_m does not apply to a mesh, which keeps its own triangles."
+            )
+    elif shape in SIZE_LENGTHS:
         size = entry["size_m"]
         if not isinstance(size, list) or len(size) != SIZE_LENGTHS[shape]:
             raise ValueError(
