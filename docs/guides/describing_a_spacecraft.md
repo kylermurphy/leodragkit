@@ -8,7 +8,7 @@ Everything is described in the spacecraft's **body frame**: three perpendicular 
 
 ## 2. The three shapes
 
-Every part is one of three shapes. Each is built in its **own frame**, centred on its own origin, and then placed in the body frame (section 3).
+Every part is one of three shapes, or a mesh file (section 5a). Each is built in its **own frame**, centred on its own origin, and then placed in the body frame (section 3).
 
 | Shape | In its own frame | Sizes | Which way it faces |
 | --- | --- | --- | --- |
@@ -107,6 +107,40 @@ pose:
 
 Each pair must be complete: `x_axis` with `z_axis`, and `rotation_axis` with `rotation_angle_deg`.
 
+## 5a. Shapes from a mesh file
+
+A part can come from a CAD export instead of a primitive: an **STL** file (binary or ASCII) or an **OBJ** file. In a description it is a component with `shape: mesh`:
+
+```yaml
+  - name: bus
+    shape: mesh
+    file: bus.stl              # relative to the description file
+    length_unit: mm            # required: m, cm, mm or in
+    reverse_winding: false     # optional; true flips every triangle, for a file wound inside out
+    material: aluminium
+    pose: {centre_m: [0, 0, 0], x_axis: [1, 0, 0], z_axis: [0, 0, 1]}
+```
+
+- **Units.** The coordinates are converted to metres when the file is read; the unit only says what the file uses. It has no default, because CAD files are often in millimetres, and a factor of 1000 in length is a factor of a million in area.
+- **The pose** places the mesh like any part; for a mesh already drawn in the body frame, use the unrotated pose shown.
+- **No resolution:** a mesh keeps its own triangles, so `max_edge_length_m` is not allowed on it.
+- **One file is one component, with one material.**
+
+Load such a description with `load_spacecraft_description` (section 9), which reads every mesh file it names. Or read one mesh on its own:
+
+```python
+from leodragkit.aero.materials import SurfaceMaterial
+from leodragkit.aero.spacecraft import build_spacecraft_from_triangles
+from leodragkit.io.mesh_files import read_stl_file
+
+mesh = read_stl_file("bus.stl", length_unit="mm")
+aluminium = SurfaceMaterial("aluminium", wall_temperature_kelvin=300.0, energy_accommodation=0.9)
+bus = build_spacecraft_from_triangles(mesh.triangle_vertices_m, name="bus", material=aluminium,
+                                      mass_kg=150.0, source=mesh.source)
+```
+
+STL files store a normal for each triangle. If a stored normal points against its triangle's corner order, reading stops with an error. An all-zero normal (common in exports) counts as not stored. A closed mesh wound inside out fails the orientation checks (section 10); `reverse_winding: true` fixes it, and the fix is recorded with the spacecraft.
+
 ## 6. One side or two
 
 A plate's front face is the only one exposed unless you say otherwise. A deployed solar panel, open to the flow on both sides, needs `two_sided: true`; a panel mounted flat on the bus (only one side exposed) does not. This matters twice: for drag, because both faces of a two-sided plate meet the flow; and for the checks (section 10).
@@ -150,6 +184,8 @@ components:
 | `name`, `shape`, `material`, `pose` | every component, required | names must be unique |
 | `size_m` | `box` (three numbers), `plate` (two) | side lengths in m |
 | `radius_m`, `height_m` | `cylinder` | in m |
+| `file`, `length_unit` | `mesh`, required | the mesh file (relative to the description) and its unit |
+| `reverse_winding` | `mesh`, optional, default false | flip every triangle |
 | `two_sided` | `plate`, optional, default false | |
 | `capped` | `cylinder`, optional, default true | |
 | `max_edge_length_m` | any component, optional | overrides the top-level value |
@@ -158,10 +194,12 @@ To build it, in Python or a notebook:
 
 ```python
 from leodragkit.aero.spacecraft import build_spacecraft
-from leodragkit.io.geometry_files import read_spacecraft_description_file
+from leodragkit.io.geometry_files import load_spacecraft_description
 
-spacecraft = build_spacecraft(read_spacecraft_description_file("my_spacecraft.yaml"), source="my_spacecraft.yaml")
+spacecraft = build_spacecraft(load_spacecraft_description("my_spacecraft.yaml"), source="my_spacecraft.yaml")
 ```
+
+`load_spacecraft_description` also reads any mesh files the description names (section 5a).
 
 Keep your own descriptions in the `geometry` directory from your main config.
 
@@ -200,4 +238,4 @@ summarise_geometry(spacecraft.panel_set)       # one row per part; rows needing 
 
 - **Parts may touch, but must not overlap.** Triangles buried inside another part would still be counted; nothing checks for this.
 - **Hinged parts** (a panel turned about its hinge line rather than its centre) are placed by working out the panel's centre and axes once. Moving parts come in a later task (A13).
-- **Other shapes** come from mesh files (STL or OBJ) in a later task (A3d).
+- **Macro-model tables** (panels without positions) come in a later task (A3d2).

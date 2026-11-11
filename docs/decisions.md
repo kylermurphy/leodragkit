@@ -240,6 +240,17 @@ A single rotation about one axis avoids the ordering ambiguity of Euler angles, 
 - **Why the own frame.** It makes "tilt this panel about its own long side" one line, without working out where that side ended up. With no axes the part starts unrotated, its own frame is the body frame, and the turn-only form keeps its meaning. Rejected: a body-frame rotation axis, which would make "about its own edge" need the edge's body direction.
 - **Hinges** (turning about a hinge line, which moves the centre) wait for A13.
 
+**D-77. Meshes (A3d1): `io/mesh_files.py` reads binary and ASCII STL and OBJ files into triangles in metres; a YAML component with `shape: mesh` names a file; `load_spacecraft_description` reads it; `build_spacecraft_from_triangles` builds a spacecraft from triangles directly.** User, 2026-11-01. A3d is split into A3d1 (meshes) and A3d2 (macro-model tables).
+
+- **Units.** `length_unit` is required (`m`, `cm`, `mm`, `in`); everything inside leodragkit is in metres, so the conversion happens once, at reading.
+- **Binary or ASCII** is decided by the file's size (84 + 50 N bytes), since some binary files begin with "solid".
+- **Stored STL normals** must not point against the corner order; all-zero normals count as not stored.
+- **Reversed winding.** `reverse_winding` is applied when reading, before the stored-normal check, and recorded in the source. This refines D-66, which placed it at building.
+- **OBJ faces** with more than three corners become fans; negative indices count back from the last vertex.
+- **One mesh file is one component with one material** (D-70); OBJ groups as components wait for a file that needs them.
+- **A mesh keeps its own triangles:** `max_edge_length_m` is not allowed on it.
+- **Two entry points.** The direct path, `read_stl_file` then `build_spacecraft_from_triangles`, needs no YAML. `aero` still never reads files (D-04), and io never imports aero.
+
 ## Licence
 
 **D-32. leodragkit is released under the MIT licence.** User, 2026-10-27. This is compatible with D-28: the aero code is written from the published equations, and ADBSat's GPL-3 code is used only as a test oracle, never copied or translated.

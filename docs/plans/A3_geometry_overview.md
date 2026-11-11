@@ -12,7 +12,8 @@ A3 builds everything that turns a description of a spacecraft into the one geome
 | A3b2 | joining placed components into one `PanelSet`: merged names, renumbered ids | `aero/geometry_builder.py` | `join_components` | A3b1 |
 | A3b3 | the orientation checks (closed, consistent, positive signed volume, the facing-the-body heuristic) and `summarise_geometry` | `aero/geometry_checks.py` | the checks; `summarise_geometry` | A3b2 |
 | A3c | materials, and YAML spacecraft descriptions → `Spacecraft`; the rotation form of a pose; the user guide | `aero/materials.py`, `aero/spacecraft.py`, `aero/geometry_builder.py`, `io/geometry_files.py` | `SurfaceMaterial`; `Spacecraft`, `build_spacecraft`; `make_pose_from_rotation`; `read_spacecraft_description_file` | A3b3 |
-| A3d | macro-model tables and STL/OBJ meshes → `PanelSet` | `io/geometry_files.py`, `io/mesh_files.py` | `read_macro_model_file`; `read_stl_file`, `read_obj_file` | A3a |
+| A3d1 | STL and OBJ meshes → triangles in metres; mesh components in descriptions | `io/mesh_files.py`, `io/geometry_files.py`, `aero/spacecraft.py` | `read_stl_file`, `read_obj_file`, `load_spacecraft_description`, `build_spacecraft_from_triangles` | A3c |
+| A3d2 | macro-model tables → a `Spacecraft` without triangles | `io/geometry_files.py`, `aero/spacecraft.py` | `read_macro_model_file` | A3d1 |
 
 ```mermaid
 flowchart LR
