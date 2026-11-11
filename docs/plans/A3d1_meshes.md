@@ -1,5 +1,7 @@
 # A3d1: Spacecraft from mesh files (STL, OBJ)
 
+**Status: done 2026-11-01.** All 266 tests pass. The user wrote both parsers. The review found that an out-of-range negative OBJ index (−4 of 3 vertices) wrapped silently round to the last vertex; the closing patch checks every index's range before converting it, collects index triples and looks up the coordinates once (0.41 s → 0.17 s for 100,000 quadrilaterals), and adds the missing test.
+
 Step plan for task A3d1 in `docs/tasks.md`; part of A3 (`docs/plans/A3_geometry_overview.md`). Mode: the user writes the binary STL reader and the OBJ face parsing; Claude wrote the rest of `io/mesh_files.py`, the description wiring, the direct path, the tests, notebook section 10, the guide section and the documentation.
 
 ## Goal

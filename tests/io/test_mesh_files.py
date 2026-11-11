@@ -130,7 +130,9 @@ def test_obj_texture_and_normal_indices_are_ignored_and_negative_indices_count_b
 
 
 @pytest.mark.parametrize(
-    "face", [[1, 2], [1, 2, 9], [0, 1, 2]], ids=["two corners", "no vertex 9", "index 0"]
+    "face",
+    [[1, 2], [1, 2, 9], [0, 1, 2], [1, 2, -4]],
+    ids=["two corners", "no vertex 9", "index 0", "no vertex -4"],  # -4 of 3 would otherwise wrap to the last
 )
 def test_a_bad_obj_face_raises_naming_the_file(tmp_path, face):
     path = tmp_path / "bad.obj"

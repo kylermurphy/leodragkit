@@ -149,11 +149,15 @@ def _read_binary_stl(data: bytes) -> tuple[np.ndarray, np.ndarray]:
     (three little-endian 32-bit floats), three corners (nine floats), and a 2-byte attribute count.
     """
     # 1. The triangle count, from bytes 80–83 (a little-endian unsigned 32-bit integer).
-    n_triangles = int(np.frombuffer(data, dtype="<u4", count=1, offset=80)[0])
-    # 2. The records: np.frombuffer(data, dtype=BINARY_STL_RECORD, count=…, offset=BINARY_STL_HEADER_BYTES).
-    n_dat = np.frombuffer(data, dtype=BINARY_STL_RECORD, count=n_triangles, offset=BINARY_STL_HEADER_BYTES)
-    # 3. Return the "vertices" and "normal" fields.
-    return n_dat["vertices"].astype(float), n_dat["normal"].astype(float)
+    triangle_count = int(np.frombuffer(data, dtype="<u4", count=1, offset=80)[0])
+
+    # 2. Every record at once, as a structured array laid out as BINARY_STL_RECORD.
+    records = np.frombuffer(
+        data, dtype=BINARY_STL_RECORD, count=triangle_count, offset=BINARY_STL_HEADER_BYTES
+    )
+
+    # 3. The corners and the stored normals, still as 32-bit floats; read_stl_file converts them.
+    return records["vertices"], records["normal"]
 
 
 def _triangles_from_obj_faces(vertices: np.ndarray, faces: list[list[int]]) -> np.ndarray:
@@ -163,22 +167,26 @@ def _triangles_from_obj_faces(vertices: np.ndarray, faces: list[list[int]]) -> n
     with corners [a, b, c, d, …] becomes the fan (a, b, c), (a, c, d), …, which keeps its corner order, so its
     winding. Raise ValueError for a face with fewer than three corners or an index that doesn't exist.
     """
-    # 1. For each face: check it has at least three corners, and turn each index into a 0-based one
-    #    (positive i → i − 1; negative i → len(vertices) + i); raise for 0 or anything out of range.
-    face_i = []
-    for v in faces:
-        if len(v) < 3:
-            raise ValueError(f"face {v} has fewer than three corners")
-        face_i.append([i-1 if i>0 else len(vertices) + i for i in v])
+    # 1. Each face: at least three corners, and every index within range before converting it to 0-based.
+    #    The range check comes first: Python would accept len(vertices) + i < 0 and silently wrap round.
+    n_vertices = len(vertices)
+    index_triples = []
+    for face in faces:
+        if len(face) < 3:
+            raise ValueError(f"face {face} has fewer than three corners")
+        zero_based = []
+        for index in face:
+            if index == 0 or not -n_vertices <= index <= n_vertices:
+                raise ValueError(f"face {face} refers to vertex {index}, but there are {n_vertices} vertices")
+            zero_based.append(index - 1 if index > 0 else n_vertices + index)
 
-    # 2. Split it into the fan (first, k, k + 1) for k from the second corner to the second-to-last.
-    triangles = []
-    for face_indices in face_i:
-        for k in range(1, len(face_indices) - 1):
-            triangles.append([vertices[face_indices[0]], vertices[face_indices[k]], vertices[face_indices[k + 1]]])
+        # 2. The fan (first, k, k + 1), which keeps the face's corner order and so its winding.
+        index_triples += [
+            (zero_based[0], zero_based[k], zero_based[k + 1]) for k in range(1, len(zero_based) - 1)
+        ]
 
-    # 3. Look up the corners' coordinates: vertices[indices] for an (N, 3) array of index triples.
-    return np.asarray(triangles, dtype=float)
+    # 3. All coordinates in one lookup: an (N, 3) array of index triples gives (N, 3, 3) triangles.
+    return vertices[np.asarray(index_triples)]
 
 
 def _read_ascii_stl(text: str) -> tuple[np.ndarray, np.ndarray]:
