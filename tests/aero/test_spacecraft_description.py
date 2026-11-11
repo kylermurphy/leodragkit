@@ -187,3 +187,66 @@ def test_an_unused_material_warns_naming_it_and_is_left_out():
     with pytest.warns(SpacecraftDescriptionWarning, match="gold_foil"):
         spacecraft = build_spacecraft(described(materials=materials), source="test")
     assert "gold_foil" not in spacecraft.panel_set.material_names
+
+
+# --- meshes (A3d1) ----------------------------------------------------------------------------------
+
+
+def test_a_mesh_component_uses_triangles_loaded_from_its_file():
+    from leodragkit.aero.geometry_builder import build_box_triangles
+
+    mesh_entry = {
+        "name": "body",
+        "shape": "mesh",
+        "file": "body.stl",
+        "length_unit": "mm",
+        "material": "aluminium",
+        "pose": {"centre_m": [0, 0, -0.5], "x_axis": [1, 0, 0], "z_axis": [0, 0, 1]},
+        "triangle_vertices_m": build_box_triangles(0.2, 0.2, 0.2),  # as load_spacecraft_description adds
+        "mesh_source": "body.stl (mm)",
+    }
+    only_aluminium = {"aluminium": DESCRIPTION["materials"]["aluminium"]}
+    components = [DESCRIPTION["components"][0], mesh_entry]
+    spacecraft = build_spacecraft(described(components=components, materials=only_aluminium), source="t")
+    body = spacecraft.panel_set.triangle_vertices_m[spacecraft.panel_set.component_ids == 1].reshape(-1, 3)
+    np.testing.assert_allclose(body.mean(axis=0), [0, 0, -0.5], atol=1e-12)  # placed at its pose
+
+
+def test_a_mesh_that_was_not_loaded_raises_saying_how_to_load_it():
+    mesh_entry = {
+        "name": "body",
+        "shape": "mesh",
+        "file": "body.stl",
+        "length_unit": "mm",
+        "material": "aluminium",
+        "pose": {"centre_m": [0, 0, 0], "x_axis": [1, 0, 0], "z_axis": [0, 0, 1]},
+    }
+    with pytest.raises(ValueError, match="load_spacecraft_description"):
+        build_spacecraft(described(components=[mesh_entry]), source="t")
+
+
+def test_a_spacecraft_can_be_built_straight_from_triangles():
+    from leodragkit.aero.geometry_builder import build_box_triangles
+    from leodragkit.aero.materials import SurfaceMaterial
+    from leodragkit.aero.spacecraft import build_spacecraft_from_triangles
+
+    aluminium = SurfaceMaterial("aluminium", 300.0, 0.9)
+    spacecraft = build_spacecraft_from_triangles(
+        build_box_triangles(0.1, 0.2, 0.3), name="box", material=aluminium, mass_kg=2.0, source="box (test)"
+    )
+    assert spacecraft.panel_set.component_names == ("box",) and spacecraft.materials == (aluminium,)
+
+
+def test_an_inside_out_mesh_cannot_be_built_straight_from_triangles():
+    from leodragkit.aero.geometry_builder import build_box_triangles
+    from leodragkit.aero.materials import SurfaceMaterial
+    from leodragkit.aero.spacecraft import build_spacecraft_from_triangles
+
+    with pytest.raises(ValueError, match="inward"):
+        build_spacecraft_from_triangles(
+            build_box_triangles(0.1, 0.2, 0.3)[:, ::-1, :],
+            name="box",
+            material=SurfaceMaterial("aluminium", 300.0, 0.9),
+            mass_kg=2.0,
+            source="inside out",
+        )
