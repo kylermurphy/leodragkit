@@ -1,5 +1,7 @@
 # A3d2: Macro models (tables of panels)
 
+**Status: done 2026-11-01.** All 287 tests pass. The user wrote the row parsing. The review found that a short row crashed with a bare `TypeError` (csv.DictReader fills missing fields with None), and that an extra value and a NaN were accepted silently. The closing patch reads each cell through two small helpers (`_text_cell`, `_number_cell`) that name the line and column, rejects surplus values and non-finite numbers, and adds the three missing tests. A3 is complete.
+
 Step plan for task A3d2 in `docs/tasks.md`; part of A3 (`docs/plans/A3_geometry_overview.md`). Mode: the user writes the row parsing in the table reader; Claude wrote the rest: header checks, the `MacroModelTable` type, the description wiring, the direct path, the example, the tests, notebook section 11, the guide's section 5b and the documentation.
 
 ## Goal

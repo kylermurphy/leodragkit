@@ -31,7 +31,7 @@ The skeleton and the main config exist so far (tasks T-00, T-01):
 - `leodragkit/aero/materials.py` (task A3c): `SurfaceMaterial`, a surface's wall temperature and accommodation, with no defaults.
 - `leodragkit/aero/spacecraft.py` (task A3c): `Spacecraft` and `build_spacecraft`, which checks a description, builds each component and attaches the materials. Read `build_spacecraft` first; `_build_component` builds one checked entry. The format is in `docs/guides/describing_a_spacecraft.md`.
 - `leodragkit/aero/repeated_warnings.py`: `warn_every_time`, for warnings Python must not hide as repeats.
-- `leodragkit/io/geometry_files.py` (tasks A3c, A3d1, A3d2): `read_spacecraft_description_file`, YAML to a mapping; `read_macro_model_file` (A3d2, being written), a CSV table of panels; `load_spacecraft_description`, which also reads the mesh files and macro-model table a description names.
+- `leodragkit/io/geometry_files.py` (tasks A3c, A3d1, A3d2): `read_spacecraft_description_file`, YAML to a mapping; `read_macro_model_file` (A3d2), a CSV table of panels; `load_spacecraft_description`, which also reads the mesh files and macro-model table a description names.
 - `leodragkit/io/mesh_files.py` (task A3d1): `read_stl_file` (binary and ASCII) and `read_obj_file`, triangles in metres, with the stored-normal check and `reverse_winding`. Step plan: `docs/plans/A3d1_meshes.md`.
 - `tests/io/test_macro_model_files.py`: macro-model tables read, and every kind of bad table named by line and column.
 - `tests/io/test_mesh_files.py`: STL and OBJ files written with known answers, read back; units, normals, reversed winding; trimesh as the oracle.

@@ -52,6 +52,9 @@ def test_spaces_around_values_are_allowed(tmp_path):
         (HEADER + "\nbus,al,1,0,0,0.1\nbus,al,one,0,0,0.1\n", "line 3, column normal_x"),
         (HEADER + "\nbus,al,1,0,0,\n", "line 2, column area_m2"),
         (HEADER + "\n,al,1,0,0,0.1\n", "line 2, column component"),
+        (HEADER + "\nbus,al,1,0,0\n", "line 2, column area_m2: not a number"),  # a short row
+        (HEADER + "\nbus,al,1,0,0,0.1,9\n", "line 2: more values than columns"),
+        (HEADER + "\nbus,al,1,0,0,nan\n", "line 2, column area_m2: must be finite"),
     ],
     ids=[
         "missing column",
@@ -61,6 +64,9 @@ def test_spaces_around_values_are_allowed(tmp_path):
         "not a number",
         "empty",
         "no name",
+        "short row",
+        "extra value",
+        "nan",
     ],
 )
 def test_a_bad_table_raises_naming_the_problem(tmp_path, text, message):

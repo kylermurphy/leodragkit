@@ -128,53 +128,54 @@ def _macro_model_from_rows(rows: list[dict], has_centroids: bool, file_path: Pat
         For an empty ``component`` or ``material``, or a numeric field that is empty or not a number, naming
         the file, the line and the column.
     """
-    comp = []
-    mat = []
-    normal_x = []
-    normal_y = []
-    normal_z = []
-    areas = []
-    centroids = [] if has_centroids else None
+    # 1. Which columns hold numbers: the normal and area, and the centroids when present.
+    number_columns = ["normal_x", "normal_y", "normal_z", "area_m2"]
+    if has_centroids:
+        number_columns += list(MACRO_MODEL_CENTROID_COLUMNS)
 
+    component_names, material_names, numbers = [], [], []
     for r, row in enumerate(rows):
-        # 1. For each row: the two names, which must not be empty (strip spaces first).
-        if not row["component"].strip():
-            raise ValueError(f"{file_path}, line {r + 2}, column component: empty value")
-        if not row["material"].strip():
-            raise ValueError(f"{file_path}, line {r + 2}, column material: empty value")
-        comp.append(row["component"].strip())
-        mat.append(row["material"].strip())
-        # 2. The numbers: normal_x, normal_y, normal_z, area_m2, and the three centroid columns when present;
-        # float(value) for each, raising ValueError(f"{file_path}, line {r + 2}, column {name}: …") 
-        # on failure.
-        try:
-            normal_x.append(float(row["normal_x"]))
-        except ValueError:
-            raise ValueError(f"{file_path}, line {r + 2}, column normal_x: invalid value '{row['normal_x']}'")
-        try:
-            normal_y.append(float(row["normal_y"]))
-        except ValueError:
-            raise ValueError(f"{file_path}, line {r + 2}, column normal_y: invalid value '{row['normal_y']}'")
-        try:
-            normal_z.append(float(row["normal_z"]))
-        except ValueError:
-            raise ValueError(f"{file_path}, line {r + 2}, column normal_z: invalid value '{row['normal_z']}'")
-        try:
-            areas.append(float(row["area_m2"]))
-        except ValueError:
-            raise ValueError(f"{file_path}, line {r + 2}, column area_m2: invalid value '{row['area_m2']}'")
-        if has_centroids:
-            try:
-                centroids.append([float(row["centroid_x_m"]), float(row["centroid_y_m"]),
-                                  float(row["centroid_z_m"])])
-            except ValueError:
-                raise ValueError(f"{file_path}, line {r + 2}, centroid columns: invalid values "
-                                 f"'{row['centroid_x_m']}', '{row['centroid_y_m']}', '{row['centroid_z_m']}'")
+        line = r + 2
+        # 2. More values than columns: csv.DictReader keeps the surplus under the key None.
+        if None in row:
+            raise ValueError(f"{file_path}, line {line}: more values than columns")
 
-    # 3. Collect them into a MacroModelTable: tuples of names, an (N, 3) normal array, an (N,) area array,
-    #    an (N, 3) centroid array or None, and source=file_path.name.
-    return MacroModelTable(tuple(comp), tuple(mat), np.array([normal_x, normal_y, normal_z]).T, np.array(areas),
-                           np.array(centroids) if has_centroids else None, file_path.name)
+        # 3. The two names, then the numbers, each checked with its line and column.
+        component_names.append(_text_cell(row, "component", line, file_path))
+        material_names.append(_text_cell(row, "material", line, file_path))
+        numbers.append([_number_cell(row, column, line, file_path) for column in number_columns])
+
+    # 4. Columns 0–2 are the normal, 3 the area, 4–6 the centroid.
+    values = np.array(numbers)
+    return MacroModelTable(
+        component_names=tuple(component_names),
+        material_names=tuple(material_names),
+        outward_normals=values[:, 0:3],
+        areas_m2=values[:, 3],
+        centroids_m=values[:, 4:7] if has_centroids else None,
+        source=file_path.name,
+    )
+
+
+def _text_cell(row: dict, column: str, line: int, file_path: Path) -> str:
+    """A non-empty name from one cell; a short row gives None, treated as empty."""
+    value = (row.get(column) or "").strip()
+    if not value:
+        raise ValueError(f"{file_path}, line {line}, column {column}: empty")
+    return value
+
+
+def _number_cell(row: dict, column: str, line: int, file_path: Path) -> float:
+    """A finite number from one cell, or a ValueError naming the line and column."""
+    text = (row.get(column) or "").strip()
+    try:
+        value = float(text)
+    except ValueError:
+        raise ValueError(f"{file_path}, line {line}, column {column}: not a number: {text!r}") from None
+    if not np.isfinite(value):
+        raise ValueError(f"{file_path}, line {line}, column {column}: must be finite, got {text!r}")
+    return value
+
 
 def load_spacecraft_description(path: str | Path) -> dict:
     """Read a description and every mesh file it names, ready for ``build_spacecraft``.

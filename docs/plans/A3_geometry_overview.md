@@ -1,5 +1,7 @@
 # A3: Geometry, overview of the split
 
+**Status: complete 2026-11-01.** All sub-steps done: A3a, A3p, A3b1–A3b3, A3c, A3d1, A3d2.
+
 A3 builds everything that turns a description of a spacecraft into the one geometry the solver sees, a `PanelSet` (D-41, D-56). It is too large for one step, so it is split into sub-steps (A3b itself into three, D-67), each with its own plan in `docs/plans/` (D-51). This overview holds what the sub-steps share: the order, what each one hands to the next, and the conventions all of them follow. Read it before writing any A3 sub-step plan.
 
 ## The sub-steps
