@@ -250,3 +250,112 @@ def test_an_inside_out_mesh_cannot_be_built_straight_from_triangles():
             mass_kg=2.0,
             source="inside out",
         )
+
+
+# --- macro models (A3d2) ------------------------------------------------------------------------------
+
+MACRO_EXAMPLE = Path(__file__).resolve().parents[2] / "config" / "geometry" / "cubesat_3u_macro_model.yaml"
+
+
+def test_the_macro_model_example_builds_without_triangles():
+    from leodragkit.io.geometry_files import load_spacecraft_description
+
+    spacecraft = build_spacecraft(load_spacecraft_description(MACRO_EXAMPLE), source=MACRO_EXAMPLE.name)
+    panels = spacecraft.panel_set
+    assert panels.panel_count == 10 and not panels.has_triangles and panels.has_positions
+    assert panels.component_names == ("bus", "panel_plus_y", "panel_minus_y")
+    assert panels.areas_m2.sum() == pytest.approx(4 * 0.034 + 2 * 0.01 + 4 * 0.03)
+    statuses = {row["status"] for row in summarise_geometry(panels).rows()}
+    assert statuses == {"not checkable (no triangles)"}
+
+
+def test_the_direct_path_gives_the_same_spacecraft_as_the_description():
+    from leodragkit.aero.spacecraft import build_spacecraft_from_macro_model
+    from leodragkit.io.geometry_files import load_spacecraft_description, read_macro_model_file
+
+    from_description = build_spacecraft(load_spacecraft_description(MACRO_EXAMPLE), source="example")
+    table = read_macro_model_file(MACRO_EXAMPLE.with_suffix(".csv"))
+    direct = build_spacecraft_from_macro_model(
+        table,
+        name=from_description.name,
+        materials=dict(zip(from_description.panel_set.material_names, from_description.materials)),
+        mass_kg=4.0,
+        source="example",
+    )
+    for field in ("outward_normals", "areas_m2", "centroids_m", "component_ids", "material_ids"):
+        np.testing.assert_array_equal(
+            getattr(direct.panel_set, field), getattr(from_description.panel_set, field)
+        )
+
+
+def test_rounded_macro_model_normals_are_normalised_and_bad_ones_raise():
+    from types import SimpleNamespace
+
+    from leodragkit.aero.materials import SurfaceMaterial
+    from leodragkit.aero.spacecraft import build_spacecraft_from_macro_model
+
+    def table(normal):
+        return SimpleNamespace(
+            component_names=("panel",),
+            material_names=("al",),
+            outward_normals=np.array([normal]),
+            areas_m2=np.array([0.1]),
+            centroids_m=None,
+        )
+
+    materials = {"al": SurfaceMaterial("al", 300.0, 0.9)}
+    rounded = build_spacecraft_from_macro_model(
+        table([0.7071, 0.7071, 0]), name="t", materials=materials, mass_kg=1.0, source="t"
+    )
+    assert np.linalg.norm(rounded.panel_set.outward_normals[0]) == pytest.approx(1.0, abs=1e-15)
+    with pytest.raises(ValueError, match="outward_normals"):
+        build_spacecraft_from_macro_model(
+            table([0.9, 0, 0]), name="t", materials=materials, mass_kg=1.0, source="t"
+        )
+
+
+def test_a_macro_model_with_an_undefined_material_raises():
+    from types import SimpleNamespace
+
+    from leodragkit.aero.spacecraft import build_spacecraft_from_macro_model
+
+    table = SimpleNamespace(
+        component_names=("panel",),
+        material_names=("gold",),
+        outward_normals=np.array([[1.0, 0, 0]]),
+        areas_m2=np.array([0.1]),
+        centroids_m=None,
+    )
+    with pytest.raises(ValueError, match="'gold'"):
+        build_spacecraft_from_macro_model(table, name="t", materials={}, mass_kg=1.0, source="t")
+
+
+def test_a_description_with_both_components_and_a_macro_model_raises():
+    with pytest.raises(ValueError, match="either components or a macro_model"):
+        build_spacecraft(described(macro_model={"file": "panels.csv"}), source="t")
+
+
+def test_a_macro_model_that_was_not_read_says_how_to_load_it():
+    description = {
+        "name": "t",
+        "mass_kg": 1.0,
+        "materials": DESCRIPTION["materials"],
+        "macro_model": {"file": "panels.csv"},
+    }
+    with pytest.raises(ValueError, match="load_spacecraft_description"):
+        build_spacecraft(description, source="t")
+
+
+def test_the_grace_macro_model_builds_from_the_published_table():
+    # Bettadpur (2012), GRACE 327-720, section I.5.3.5: eight flat surfaces (the boom is left out).
+    from leodragkit.io.geometry_files import load_spacecraft_description
+
+    path = MACRO_EXAMPLE.with_name("grace_macro_model.yaml")
+    grace = build_spacecraft(load_spacecraft_description(path), source=path.name)
+    panels = grace.panel_set
+    assert panels.panel_count == 8 and not panels.has_positions and grace.mass_kg == 487.2
+    assert panels.areas_m2.sum() == pytest.approx(16.9163284, abs=1e-7)
+    assert grace.panel_set.material_names == ("siox_kapton", "si_glass_solar_array", "teflon_fep")
+    np.testing.assert_allclose(
+        np.linalg.norm(panels.outward_normals, axis=1), 1.0, atol=1e-15
+    )  # 0.766044, 0.642787
