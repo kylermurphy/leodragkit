@@ -206,7 +206,7 @@ Software verification ("did we implement the equations?") comes before physical 
 | V2 | Sphere | Bird / Dey eq. 2.5 (DRIA), Dey eq. 2.8 (CLL), by quadrature and by meshed spheres | A2, A5, A10 |
 | V3 | Boxes, plates in front of boxes, L-shapes | hand calculation; trimesh areas, normals and ray hits | A3, A5, A6 |
 | V4 | ADBSat | MATLAB ADBSat or ADBSat-PyVersion, run with explicit speeds, for plate, cube and sphere and each model | A11 |
-| V5 | Published spacecraft values | Dey et al. 2025a, GRACE and C/NOFS macro models | A12 |
+| V5 | Published spacecraft values | Dey et al. 2025a, GRACE and C/NOFS macro models; the GRACE panels are in `config/geometry/grace_macro_model.yaml` (Bettadpur 2012), without the boom, which Dey et al. treat separately | A12 |
 | V6 | CHAMP and GRACE | TU Delft geometry and SPARTA (DSMC) tables; accelerometer densities | A12 |
 | V7 | Spire | contigo_edr | after A12 |
 
@@ -229,6 +229,7 @@ Each comes back by decision when a workflow needs it (D-43).
 
 The primer's reference list holds the sources for steps 1–6. Added here:
 
+- Bettadpur, S. (2012). *Gravity Recovery and Climate Experiment Product Specification Document*, Rev 4.6 (draft), May 29, 2012. GRACE 327-720, CSR-GR-03-02. Center for Space Research, The University of Texas at Austin. No DOI or ISBN; cited as D-49 requires. Read: the PDF uploaded to the project; §I.5.2.3 (Satellite Frame), §I.5.3.3 (mass) and §I.5.3.5 (macro-model surfaces, printed page 22, checked against the rendered page). Dey et al. (2025a) cite an earlier revision (2007), not read.
 - Dey, S., Anderson, P., Bukowski, A., & Pilinski, M. (2025a). Investigation of gas-surface interactions and neutral atmospheric properties and their impact on satellite drag coefficients. *Earth and Space Science*, 12, e2024EA003998. doi:[10.1029/2024EA003998](https://doi.org/10.1029/2024EA003998). CC BY 4.0.
 - Dey, S., Anderson, P., Pilinski, M., Sutton, E., & Bukowski, A. (2025b). An extreme events study of the storm-time variations in satellite drag coefficients. *Space Weather*, 23, e2025SW004634. doi:[10.1029/2025SW004634](https://doi.org/10.1029/2025SW004634). CC BY 4.0.
 - Mehta, P. M., Walker, A., McLaughlin, C. A., & Koller, J. (2014). Comparing physical drag coefficients computed using different gas–surface interaction models. *Journal of Spacecraft and Rockets*, 51, 873–883. doi:[10.2514/1.A32566](https://doi.org/10.2514/1.A32566).

@@ -8,7 +8,7 @@ Everything is described in the spacecraft's **body frame**: three perpendicular 
 
 ## 2. The three shapes
 
-Every part is one of three shapes, or a mesh file (section 5a). Each is built in its **own frame**, centred on its own origin, and then placed in the body frame (section 3).
+Every part is one of three shapes, or a mesh file (section 5a). A spacecraft can also be given as a table of panels without shapes, a macro model (section 5b). Each is built in its **own frame**, centred on its own origin, and then placed in the body frame (section 3).
 
 | Shape | In its own frame | Sizes | Which way it faces |
 | --- | --- | --- | --- |
@@ -141,6 +141,69 @@ bus = build_spacecraft_from_triangles(mesh.triangle_vertices_m, name="bus", mate
 
 STL files store a normal for each triangle. If a stored normal points against its triangle's corner order, reading stops with an error. An all-zero normal (common in exports) counts as not stored. A closed mesh wound inside out fails the orientation checks (section 10); `reverse_winding: true` fixes it, and the fix is recorded with the spacecraft.
 
+## 5b. Macro models: panels without shapes
+
+A **macro model** describes a spacecraft as a short table of flat panels: each panel's outward normal, area and material, and sometimes its centre. It is how spacecraft surfaces are published for precise orbit determination (GRACE, GRACE-FO, CHAMP, the Jason satellites), and what studies such as Dey et al. (2025) use for drag coefficients.
+
+### What it can and can't do
+
+A row gives a panel's direction and size, **not its shape**. A 0.3 × 0.1 m strip and a 0.17 × 0.17 m square with the same normal, area and centre have the same row. So leodragkit cannot make triangles from it without inventing edges, and does not:
+
+| | Macro model | Plates and meshes |
+| --- | --- | --- |
+| drag and lift from each panel | yes | yes |
+| shadowing (one part hiding another from the flow) | **no** | yes |
+| moments | only if centres are given | yes |
+| checks that normals point outward | **no** (the plot shows them) | yes |
+| speed | fast: tens of panels | thousands of triangles |
+
+**When a macro model is enough:** a **convex** spacecraft (a box, a prism, a closed cylinder) without deployables. On a convex body, a panel facing the flow can never be hidden by another part of the same body, so there is nothing for shadowing to do. Also when **reproducing a published result**, which needs exactly the panels that study used.
+
+**When it is not:** deployed solar panels or booms that can shade the body, or the reverse, at the attitudes you care about, or any concave shape. Describe those with plates and meshes instead. If a table gives each panel's two side lengths and how it is turned, it already holds a plate: write it as one (section 4).
+
+### The table
+
+A CSV file, one row per panel, with these columns (lengths in metres, areas in m²):
+
+```csv
+component,material,normal_x,normal_y,normal_z,area_m2,centroid_x_m,centroid_y_m,centroid_z_m
+bus,aluminium,1,0,0,0.034,0.05,0,0
+panel_plus_y,solar_cell,1,0,0,0.03,0,0.2,0.12
+panel_plus_y,solar_cell,-1,0,0,0.03,0,0.2,0.12
+```
+
+- The three `centroid_*` columns are optional: all three, or none.
+- A panel exposed on both sides is **two rows**, front and back, with opposite normals, as published tables do.
+- Normals rounded to a few decimals are normalised; one clearly not of length 1 is an error naming its row.
+- Panels of the same `component` are grouped under that name, as in the plot's legend.
+
+### Loading it
+
+In a description, `macro_model` replaces `components` (and `max_edge_length_m`):
+
+```yaml
+name: 3U CubeSat as a macro model (example)
+mass_kg: 4.0
+materials:
+  aluminium:  {wall_temperature_kelvin: 300.0, energy_accommodation: 0.9}
+  solar_cell: {wall_temperature_kelvin: 300.0, energy_accommodation: 0.9}
+macro_model:
+  file: cubesat_3u_macro_model.csv     # relative to the description
+```
+
+Load it with `load_spacecraft_description`, like any description. A description has either components or a macro model, never both. Or read the table directly:
+
+```python
+from leodragkit.aero.spacecraft import build_spacecraft_from_macro_model
+from leodragkit.io.geometry_files import read_macro_model_file
+
+table = read_macro_model_file("cubesat_3u_macro_model.csv")
+cubesat = build_spacecraft_from_macro_model(table, name="cubesat", materials={"aluminium": aluminium,
+                                            "solar_cell": solar_cell}, mass_kg=4.0, source=table.source)
+```
+
+The examples are `config/geometry/cubesat_3u_macro_model.yaml` (illustrative) and `config/geometry/grace_macro_model.yaml`: the GRACE satellites' eight flat surfaces, copied from the GRACE Product Specification Document (Bettadpur, 2012, GRACE 327-720, §I.5.3.5). GRACE's table gives no panel positions, so its normals are drawn from the origin. Its cylindrical boom has no normal and is left out.
+
 ## 6. One side or two
 
 A plate's front face is the only one exposed unless you say otherwise. A deployed solar panel, open to the flow on both sides, needs `two_sided: true`; a panel mounted flat on the bus (only one side exposed) does not. This matters twice: for drag, because both faces of a two-sided plate meet the flow; and for the checks (section 10).
@@ -238,4 +301,4 @@ summarise_geometry(spacecraft.panel_set)       # one row per part; rows needing 
 
 - **Parts may touch, but must not overlap.** Triangles buried inside another part would still be counted; nothing checks for this.
 - **Hinged parts** (a panel turned about its hinge line rather than its centre) are placed by working out the panel's centre and axes once. Moving parts come in a later task (A13).
-- **Macro-model tables** (panels without positions) come in a later task (A3d2).
+- **Macro models** give no shadowing and no orientation checks (section 5b).

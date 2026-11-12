@@ -251,6 +251,14 @@ A single rotation about one axis avoids the ordering ambiguity of Euler angles, 
 - **A mesh keeps its own triangles:** `max_edge_length_m` is not allowed on it.
 - **Two entry points.** The direct path, `read_stl_file` then `build_spacecraft_from_triangles`, needs no YAML. `aero` still never reads files (D-04), and io never imports aero.
 
+**D-78. Macro models (A3d2) are CSV tables with columns `component`, `material`, `normal_x/y/z`, `area_m2`, and optionally all three `centroid_*_m`. A description uses `macro_model: {file: …}` instead of `components`; `build_spacecraft_from_macro_model` is the direct path. No triangles are invented, and no orientation heuristic is applied.** User, 2026-11-01.
+
+- **Why no triangles.** A row gives a panel's direction and size, not its shape, so triangles would need invented edges, and shadowing would depend on them. A table that gives dimensions is written as plates instead.
+- **Why a macro model is still useful.** A convex spacecraft without deployables never shadows itself, so its macro-model drag equals the triangle model's for the same panel physics. Reproducing published results (V5, A12) needs the published panels. And it is fast.
+- **Why no heuristic.** Published tables list two-sided panels as front and back rows, and every back row faces the body, so the facing-the-body heuristic would flag them all. The summary says "not checkable"; the plot shows the normals.
+- **A description holds one form or the other,** since a `PanelSet` has triangles for all panels or none.
+- **The guide's section 5b** explains when a macro model is enough, and the example is `config/geometry/cubesat_3u_macro_model.yaml`.
+
 ## Licence
 
 **D-32. leodragkit is released under the MIT licence.** User, 2026-10-27. This is compatible with D-28: the aero code is written from the published equations, and ADBSat's GPL-3 code is used only as a test oracle, never copied or translated.
