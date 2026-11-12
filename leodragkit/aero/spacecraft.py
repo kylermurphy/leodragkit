@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from leodragkit.aero.geometry import PanelSet
+from leodragkit.aero.geometry import PanelSet, panel_set_from_panels
 from leodragkit.aero.geometry_builder import (
     Component,
     Pose,
@@ -32,7 +32,9 @@ from leodragkit.aero.geometry_builder import (
 from leodragkit.aero.materials import SurfaceMaterial
 from leodragkit.aero.repeated_warnings import warn_every_time
 
-TOP_LEVEL_KEYS = {"name", "mass_kg", "max_edge_length_m", "materials", "components"}
+COMMON_TOP_LEVEL_KEYS = {"name", "mass_kg", "materials"}
+COMPONENT_FORM_KEYS = COMMON_TOP_LEVEL_KEYS | {"max_edge_length_m", "components"}
+MACRO_MODEL_FORM_KEYS = COMMON_TOP_LEVEL_KEYS | {"macro_model"}
 MATERIAL_KEYS = {"wall_temperature_kelvin", "energy_accommodation"}
 COMMON_COMPONENT_KEYS = {"name", "shape", "material", "pose"}
 OPTIONAL_COMPONENT_KEYS = {"max_edge_length_m"}
@@ -79,55 +81,65 @@ class Spacecraft:
 
 
 def build_spacecraft(description: Mapping, source: str) -> Spacecraft:
-    """Build a ``Spacecraft`` from a description: check it, build and join its components, attach materials.
+    """Build a ``Spacecraft`` from a description: check it, build its panels, attach materials.
+
+    A description has ``name``, ``mass_kg`` and ``materials`` (name → wall temperature and accommodation),
+    and then one of two forms:
+
+    - **components:** ``max_edge_length_m`` (may be None, the coarsest mesh) and ``components`` (a list of
+      primitives and meshes), joined with the orientation checks;
+    - **macro model:** ``macro_model: {file: …}``, a table of panels without shapes, read by
+      ``leodragkit.io.geometry_files.load_spacecraft_description`` (which adds ``macro_model["table"]``).
 
     Parameters
     ----------
     description
-        The parsed description: ``name``, ``mass_kg``, ``max_edge_length_m`` (may be None, the coarsest
-        mesh), ``materials`` (name → wall temperature and accommodation) and ``components`` (a list).
+        The parsed description.
     source
         Where the description came from (a file path, or a note), for provenance.
 
     Raises
     ------
     ValueError
-        Naming the place in the description: an unknown or missing key, a value of the wrong kind, an
-        undefined material, a bad pose, or a component that fails the orientation checks.
+        Naming the place in the description: an unknown or missing key, both forms at once, a value of the
+        wrong kind, an undefined material, a bad pose, or a component that fails the orientation checks.
 
     Warns
     -----
     SpacecraftDescriptionWarning
-        For materials defined but used by no component; they are left out.
+        For materials defined but used by no panel; they are left out.
 
     Example::
 
-        description = read_spacecraft_description_file("config/geometry/cubesat_3u_example.yaml")
+        description = load_spacecraft_description("config/geometry/cubesat_3u_example.yaml")
         cubesat = build_spacecraft(description, source="cubesat_3u_example.yaml")
     """
-    # 1. The top level.
-    _check_keys(description, required=TOP_LEVEL_KEYS, optional=set(), where="the description")
+    # 1. The form, then the top level.
+    if not isinstance(description, Mapping):
+        raise ValueError(f"the description must be a mapping of keys to values, got {description!r}.")
+    if "macro_model" in description and "components" in description:
+        raise ValueError("a description has either components or a macro_model, not both.")
+    is_macro_model = "macro_model" in description
+    form_keys = MACRO_MODEL_FORM_KEYS if is_macro_model else COMPONENT_FORM_KEYS
+    _check_keys(description, required=form_keys, optional=set(), where="the description")
     name = _non_empty_string(description["name"], "name")
     mass_kg = _positive_number(description["mass_kg"], "mass_kg")
-    resolution = description["max_edge_length_m"]
-    default_resolution_m = None if resolution is None else _positive_number(resolution, "max_edge_length_m")
+    materials = _materials_from_description(description["materials"])
 
-    # 2. Materials, by name.
-    if not isinstance(description["materials"], Mapping) or not description["materials"]:
-        raise ValueError("materials must be a non-empty mapping of material name to its properties.")
-    materials = {}
-    for material_name, properties in description["materials"].items():
-        where = f"materials.{material_name}"
-        _check_keys(properties, required=MATERIAL_KEYS, optional=set(), where=where)
-        materials[material_name] = SurfaceMaterial(
-            name=_non_empty_string(material_name, where),
-            wall_temperature_kelvin=_positive_number(
-                properties["wall_temperature_kelvin"], f"{where}.wall_temperature_kelvin"
-            ),
-            energy_accommodation=_number(properties["energy_accommodation"], f"{where}.energy_accommodation"),
-        )
+    # 2. A macro model: its table, already read by io.
+    if is_macro_model:
+        macro_model = description["macro_model"]
+        if not isinstance(macro_model, Mapping) or "table" not in macro_model:
+            raise ValueError(
+                "macro_model's table has not been read. Load the description with "
+                "leodragkit.io.geometry_files.load_spacecraft_description, which reads it."
+            )
+        _check_keys(macro_model, required={"file", "table"}, optional=set(), where="macro_model")
+        return _spacecraft_from_table(macro_model["table"], name, materials, mass_kg, source, caller_depth=2)
 
     # 3. Components: check each entry, then build it.
+    resolution = description["max_edge_length_m"]
+    default_resolution_m = None if resolution is None else _positive_number(resolution, "max_edge_length_m")
     entries = description["components"]
     if not isinstance(entries, list) or not entries:
         raise ValueError("components must be a non-empty list.")
@@ -140,24 +152,106 @@ def build_spacecraft(description: Mapping, source: str) -> Spacecraft:
         except ValueError as error:
             raise ValueError(f"{where}: {error}") from error
 
-    # 4. Join (runs the orientation checks) and warn about unused materials.
+    # 4. Join (runs the orientation checks), warn about unused materials, and attach the used ones in order.
     panel_set = join_components(components, source=source)
-    unused = sorted(set(materials) - set(panel_set.material_names))
-    if unused:
-        warn_every_time(
-            f"{source}: materials {unused} are defined but used by no component, so they are left out. "
-            "If a component should use one, check its 'material' spelling.",
-            SpacecraftDescriptionWarning,
-            caller_depth=1,
-        )
-
-    # 5. The materials in the panel set's order.
+    _warn_about_unused_materials(materials, panel_set.material_names, source, caller_depth=2)
     return Spacecraft(
         name=name,
         mass_kg=mass_kg,
         panel_set=panel_set,
         materials=tuple(materials[material_name] for material_name in panel_set.material_names),
     )
+
+
+def build_spacecraft_from_macro_model(
+    table, *, name: str, materials: Mapping[str, SurfaceMaterial], mass_kg: float, source: str
+) -> Spacecraft:
+    """A spacecraft from a macro-model table: flat panels with normals and areas, no shapes.
+
+    Without triangles there is no shadowing, and without centroids no moments; the orientation checks cannot
+    run (the summary says "not checkable"). Fine for convex spacecraft without deployables, and for
+    reproducing published results; see ``docs/guides/describing_a_spacecraft.md``, "Macro models".
+
+    Parameters
+    ----------
+    table
+        A ``leodragkit.io.geometry_files.MacroModelTable``, or anything with its attributes:
+        ``component_names`` and ``material_names`` (per panel), ``outward_normals``, ``areas_m2`` and
+        ``centroids_m``.
+    materials
+        Every material the table names, by name.
+
+    Example::
+
+        table = read_macro_model_file("config/geometry/cubesat_3u_macro_model.csv")
+        cubesat = build_spacecraft_from_macro_model(
+            table, name="cubesat", materials={"aluminium": aluminium, "solar_cell": solar_cell}, mass_kg=4.0,
+            source=table.source,
+        )
+    """
+    return _spacecraft_from_table(
+        table, name, dict(materials), _positive_number(mass_kg, "mass_kg"), source, 2
+    )
+
+
+def _spacecraft_from_table(table, name, materials, mass_kg, source, caller_depth) -> Spacecraft:
+    """The work shared by both macro-model paths: ids from names, materials checked, the panel set built."""
+    # 1. Components and materials in order of first appearance; ids per panel.
+    component_names = tuple(dict.fromkeys(table.component_names))
+    material_names = tuple(dict.fromkeys(table.material_names))
+    undefined = [material for material in material_names if material not in materials]
+    if undefined:
+        raise ValueError(
+            f"the macro model uses materials {undefined} that are not defined; defined: {sorted(materials)}."
+        )
+    component_ids = np.array([component_names.index(component) for component in table.component_names])
+    material_ids = np.array([material_names.index(material) for material in table.material_names])
+
+    # 2. The panel set: normals within rounding are normalised, areas checked (panel i is data row i).
+    panel_set = panel_set_from_panels(
+        table.outward_normals,
+        table.areas_m2,
+        component_ids,
+        material_ids,
+        component_names,
+        material_names,
+        source=source,
+        centroids_m=table.centroids_m,
+    )
+    _warn_about_unused_materials(materials, material_names, source, caller_depth=caller_depth + 1)
+    return Spacecraft(name, mass_kg, panel_set, tuple(materials[material] for material in material_names))
+
+
+def _materials_from_description(described: Mapping) -> dict[str, SurfaceMaterial]:
+    """The description's ``materials`` as ``SurfaceMaterial`` objects by name, each entry checked."""
+    if not isinstance(described, Mapping) or not described:
+        raise ValueError("materials must be a non-empty mapping of material name to its properties.")
+    materials = {}
+    for material_name, properties in described.items():
+        where = f"materials.{material_name}"
+        _check_keys(properties, required=MATERIAL_KEYS, optional=set(), where=where)
+        materials[material_name] = SurfaceMaterial(
+            name=_non_empty_string(material_name, where),
+            wall_temperature_kelvin=_positive_number(
+                properties["wall_temperature_kelvin"], f"{where}.wall_temperature_kelvin"
+            ),
+            energy_accommodation=_number(properties["energy_accommodation"], f"{where}.energy_accommodation"),
+        )
+    return materials
+
+
+def _warn_about_unused_materials(
+    materials: Mapping, used: tuple[str, ...], source: str, caller_depth: int
+) -> None:
+    """Warn, every time, about defined materials no panel uses; they are left out of the spacecraft."""
+    unused = sorted(set(materials) - set(used))
+    if unused:
+        warn_every_time(
+            f"{source}: materials {unused} are defined but used by no panel, so they are left out. "
+            "If a panel should use one, check its material's spelling.",
+            SpacecraftDescriptionWarning,
+            caller_depth=caller_depth,
+        )
 
 
 def build_spacecraft_from_triangles(
