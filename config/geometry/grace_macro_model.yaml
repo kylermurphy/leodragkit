@@ -1,0 +1,38 @@
+# GRACE as a macro model: the eight flat surfaces of the GRACE satellites, in the GRACE Satellite Frame.
+#
+# Source of the areas and unit normals (copied exactly; checked against the printed table):
+#   Bettadpur, S. (2012). Gravity Recovery and Climate Experiment Product Specification Document,
+#   Rev 4.6 (draft), May 29, 2012. GRACE 327-720, CSR-GR-03-02. Center for Space Research, The University
+#   of Texas at Austin. Section I.5.3.5, "GRACE Macro Model: Surface Properties" (printed page 22).
+#   Copy read: the PDF uploaded to the project. Dey et al. (2025) cite an earlier revision (2007).
+#
+# Satellite Frame (same document, section I.5.2.3): x from the accelerometer proof mass towards the K-band
+# horn (roll axis); z normal to the main equipment platform, towards the radiator (yaw axis), which points to
+# nadir in flight; y completes the right-handed triad (pitch axis). The leading satellite flies with x
+# against the direction of flight, the trailing one with x along it. No panel positions are given, so this
+# model has no shadowing and no moments (docs/guides/describing_a_spacecraft.md, "Macro models").
+#
+# Left out: the cylindrical boom (0.0461901 m², a projected area with no normal), which is not a flat panel.
+#
+# Not from the source:
+#   - wall_temperature_kelvin 300 K follows Dey et al. (2025), Table 1 ("surface temperature").
+#   - energy_accommodation 0.9 is a placeholder modelling choice, not from either source; set it for a study.
+#   - Material names: the source's materials (SiOx/Kapton; Si glass solar array; Teflon, i.e. FEP) without
+#     their optical coefficients, which are for radiation pressure, not drag.
+
+name: GRACE (macro model)
+mass_kg: 487.2                   # at launch, each satellite (same document, section I.5.3.3)
+
+materials:
+  siox_kapton:
+    wall_temperature_kelvin: 300.0
+    energy_accommodation: 0.9
+  si_glass_solar_array:
+    wall_temperature_kelvin: 300.0
+    energy_accommodation: 0.9
+  teflon_fep:
+    wall_temperature_kelvin: 300.0
+    energy_accommodation: 0.9
+
+macro_model:
+  file: grace_macro_model.csv

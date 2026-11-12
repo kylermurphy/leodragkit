@@ -1,0 +1,9 @@
+component,material,normal_x,normal_y,normal_z,area_m2
+front,siox_kapton,1.0,0.0,0.0,0.9551567
+rear,siox_kapton,-1.0,0.0,0.0,0.9551567
+starboard_outer,si_glass_solar_array,0.0,0.766044,-0.642787,3.1554792
+starboard_inner,siox_kapton,0.0,-0.766044,0.642787,0.2282913
+port_outer,si_glass_solar_array,0.0,-0.766044,-0.642787,3.1554792
+port_inner,siox_kapton,0.0,0.766044,0.642787,0.2282913
+nadir,teflon_fep,0.0,0.0,1.0,6.0711120
+zenith,si_glass_solar_array,0.0,0.0,-1.0,2.1673620

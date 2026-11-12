@@ -1,0 +1,11 @@
+component,material,normal_x,normal_y,normal_z,area_m2,centroid_x_m,centroid_y_m,centroid_z_m
+bus,aluminium,1,0,0,0.034,0.05,0,0
+bus,aluminium,-1,0,0,0.034,-0.05,0,0
+bus,aluminium,0,1,0,0.034,0,0.05,0
+bus,aluminium,0,-1,0,0.034,0,-0.05,0
+bus,aluminium,0,0,1,0.01,0,0,0.17
+bus,aluminium,0,0,-1,0.01,0,0,-0.17
+panel_plus_y,solar_cell,1,0,0,0.03,0,0.2,0.12
+panel_plus_y,solar_cell,-1,0,0,0.03,0,0.2,0.12
+panel_minus_y,solar_cell,1,0,0,0.03,0,-0.2,0.12
+panel_minus_y,solar_cell,-1,0,0,0.03,0,-0.2,0.12

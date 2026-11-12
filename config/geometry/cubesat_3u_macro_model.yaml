@@ -1,0 +1,17 @@
+# The 3U CubeSat of cubesat_3u_example.yaml as a macro model: one row per flat panel in a table, without
+# shapes, so no shadowing (illustrative; the antenna is left out). How and when to use a macro model:
+# docs/guides/describing_a_spacecraft.md, "Macro models".
+
+name: 3U CubeSat as a macro model (example)
+mass_kg: 4.0
+
+materials:
+  aluminium:
+    wall_temperature_kelvin: 300.0
+    energy_accommodation: 0.9
+  solar_cell:
+    wall_temperature_kelvin: 300.0
+    energy_accommodation: 0.9
+
+macro_model:
+  file: cubesat_3u_macro_model.csv   # relative to this file; each deployed panel is listed front and back
