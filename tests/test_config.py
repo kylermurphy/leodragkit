@@ -25,12 +25,15 @@ def write_main_config(tmp_path: Path, **changes) -> Path:
         "data_directories": {
             "geometry": str(tmp_path / "data" / "geometry"),
             "tles": str(tmp_path / "data" / "tles"),
+            "spice_kernels": str(tmp_path / "data" / "spice_kernels"),
             "orekit_data": None,
         },
     }
     for key, value in changes.items():
         if key == "data_directories" and isinstance(value, dict):
             content["data_directories"].update(value)
+            for name in [name for name, entry in value.items() if entry is ...]:
+                del content["data_directories"][name]
         elif value is ...:
             del content[key]
         else:
@@ -41,12 +44,13 @@ def write_main_config(tmp_path: Path, **changes) -> Path:
 
 
 def test_load_main_config_reads_every_directory(tmp_path):
-    for name in ("outputs", "data/geometry", "data/tles"):
+    for name in ("outputs", "data/geometry", "data/tles", "data/spice_kernels"):
         (tmp_path / name).mkdir(parents=True)
     main_config = load_main_config(write_main_config(tmp_path))
     assert main_config.output_directory == tmp_path / "outputs"
     assert main_config.data_directories.geometry == tmp_path / "data" / "geometry"
     assert main_config.data_directories.tles == tmp_path / "data" / "tles"
+    assert main_config.data_directories.spice_kernels == tmp_path / "data" / "spice_kernels"
     assert main_config.data_directories.orekit_data is None  # null: the orekit-data pip package
     assert main_config.source_file == (tmp_path / "main_config.yaml").resolve()
 
@@ -54,8 +58,8 @@ def test_load_main_config_reads_every_directory(tmp_path):
 def test_missing_directories_are_created_with_a_warning_each(tmp_path):
     with pytest.warns(UserWarning, match="Created the") as warnings_raised:
         main_config = load_main_config(write_main_config(tmp_path))
-    assert len(warnings_raised) == 3  # output_directory, geometry, tles; orekit_data is null
-    assert "'data_directories.tles'" in str(warnings_raised[-1].message)
+    assert len(warnings_raised) == 4  # output_directory, geometry, tles, spice_kernels; orekit_data is null
+    assert "'data_directories.spice_kernels'" in str(warnings_raised[-1].message)
     assert main_config.data_directories.tles.is_dir() and main_config.output_directory.is_dir()
 
 
@@ -143,7 +147,10 @@ def test_create_main_config_writes_a_file_that_loads_back(tmp_path):
     assert main_config == MainConfig(
         output_directory=tmp_path / "outputs",
         data_directories=DataDirectories(
-            geometry=tmp_path / "data" / "geometry", tles=tmp_path / "data" / "tles", orekit_data=None
+            geometry=tmp_path / "data" / "geometry",
+            tles=tmp_path / "data" / "tles",
+            spice_kernels=tmp_path / "data" / "spice_kernels",
+            orekit_data=None,
         ),
         source_file=config_path.resolve(),
     )
@@ -164,3 +171,8 @@ def test_example_file_has_exactly_the_keys_the_code_reads():
     example = yaml.safe_load(EXAMPLE_CONFIG.read_text(encoding="utf-8"))
     assert set(example) == {"output_directory", "data_directories"}
     assert set(example["data_directories"]) == {field.name for field in dataclasses.fields(DataDirectories)}
+
+
+def test_a_config_written_before_spice_kernels_existed_says_what_to_add(tmp_path):
+    with pytest.raises(ConfigError, match="missing \\['spice_kernels'\\].*older version"):
+        load_main_config(write_main_config(tmp_path, data_directories={"spice_kernels": ...}))

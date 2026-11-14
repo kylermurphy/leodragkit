@@ -23,6 +23,7 @@ dependencies = [
     "pyarrow",
     "pymsis",
     "orekit_jpype",
+    "spiceypy",
 ]
 
 [project.scripts]

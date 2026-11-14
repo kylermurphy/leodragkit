@@ -17,6 +17,7 @@ dependencies:
   - pyarrow
   - pyyaml
   - requests
+  - spiceypy        # time scales: UTC, GPS and SPICE ET, with NAIF's leap-second kernel (D-82)
   - ipykernel
   - jupyterlab
   - pytest

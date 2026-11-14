@@ -13,7 +13,16 @@ import sys
 import leodragkit
 
 # Dependencies that aero must never load, and that ``import leodragkit`` must not load either.
-HEAVY_DEPENDENCIES = {"jpype", "orekit_jpype", "pymsis", "pandas", "requests", "matplotlib", "plotly"}
+HEAVY_DEPENDENCIES = {
+    "jpype",
+    "orekit_jpype",
+    "pymsis",
+    "pandas",
+    "requests",
+    "matplotlib",
+    "plotly",
+    "spiceypy",
+}
 
 
 def modules_loaded_by_import(module_name: str) -> set[str]:

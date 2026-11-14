@@ -229,3 +229,5 @@ CLAUDE.local.md
 
 # Ignore vscode
 .vscode
+# Local exploration notebooks and their caches
+local/

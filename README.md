@@ -70,6 +70,7 @@ output_directory: D:/outputs/leodragkit
 data_directories:
   geometry: D:/data/leodragkit/geometry   # spacecraft panel tables
   tles: D:/data/space_track/tles          # TLE history from Space-Track
+  spice_kernels: D:/data/spice_kernels    # NAIF SPICE kernels (the leap-second kernel naif0012.tls)
   orekit_data: null                       # null: the orekit-data pip package; or your own Orekit data folder
 ```
 

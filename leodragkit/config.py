@@ -32,6 +32,7 @@ class DataDirectories:
 
     geometry: Path  # spacecraft panel tables, read by aero
     tles: Path  # TLE history downloaded from Space-Track
+    spice_kernels: Path  # NAIF SPICE kernels, such as the leap-second kernel for time scales
     orekit_data: Path | None  # an Orekit data folder; None: the orekit-data pip package
 
 
@@ -90,6 +91,9 @@ def load_main_config(path: str | Path | None = None) -> MainConfig:
     output_directory = _require_absolute(raw["output_directory"], "output_directory", config_path)
     geometry = _require_absolute(raw_directories["geometry"], "data_directories.geometry", config_path)
     tles = _require_absolute(raw_directories["tles"], "data_directories.tles", config_path)
+    spice_kernels = _require_absolute(
+        raw_directories["spice_kernels"], "data_directories.spice_kernels", config_path
+    )
     orekit_data = None  # null in the file: Orekit data comes from the orekit-data pip package
     if raw_directories["orekit_data"] is not None:
         orekit_data = _require_absolute(
@@ -106,6 +110,7 @@ def load_main_config(path: str | Path | None = None) -> MainConfig:
         "output_directory": output_directory,
         "data_directories.geometry": geometry,
         "data_directories.tles": tles,
+        "data_directories.spice_kernels": spice_kernels,
     }
     for key, path in creatable.items():
         if path.exists() and not path.is_dir():
@@ -121,7 +126,9 @@ def load_main_config(path: str | Path | None = None) -> MainConfig:
     # 5. Return a frozen config, recording which file it came from (provenance).
     return MainConfig(
         output_directory=output_directory,
-        data_directories=DataDirectories(geometry=geometry, tles=tles, orekit_data=orekit_data),
+        data_directories=DataDirectories(
+            geometry=geometry, tles=tles, spice_kernels=spice_kernels, orekit_data=orekit_data
+        ),
         source_file=config_path.resolve(),
     )
 
@@ -161,6 +168,7 @@ def create_main_config(
         "data_directories": {
             "geometry": (data_root_path / "geometry").as_posix(),
             "tles": (data_root_path / "tles").as_posix(),
+            "spice_kernels": (data_root_path / "spice_kernels").as_posix(),
             "orekit_data": None,
         },
     }
@@ -196,7 +204,10 @@ def _check_keys(raw: dict, expected_keys: set[str], config_path: Path, section: 
     missing_keys = expected_keys - raw.keys()
     unknown_keys = raw.keys() - expected_keys
     if missing_keys:
-        raise ConfigError(f"{config_path}: {section} is missing {sorted(missing_keys)}.")
+        raise ConfigError(
+            f"{config_path}: {section} is missing {sorted(missing_keys)}. A config written by an older "
+            "version may lack a key added since; add it (see config/main_config.example.yaml)."
+        )
     if unknown_keys:
         raise ConfigError(
             f"{config_path}: {section} has unknown keys {sorted(unknown_keys)}; "
