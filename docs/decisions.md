@@ -259,6 +259,54 @@ A single rotation about one axis avoids the ordering ambiguity of Euler angles, 
 - **A description holds one form or the other,** since a `PanelSet` has triangles for all panels or none.
 - **The guide's section 5b** explains when a macro model is enough, and the example is `config/geometry/cubesat_3u_macro_model.yaml`.
 
+**D-79. The working frame is ITRF (Earth-fixed): the relative velocity is the ITRF velocity; an attitude law's inertial velocity is computed in ITRF axes as v_ITRF + ω_E × r; aero uses no library frame transforms; frame labels come from a fixed, documented list (`"ITRF"`, `"orbit_level_spire"`) and must agree between attitude and velocity.** User, 2026-11-02.
+
+- **Why the relative velocity needs no transform.** The atmosphere co-rotates with the Earth (D-25), so the satellite's velocity relative to the air is its Earth-fixed velocity.
+- **Why the labels are checked.** Mixing an inertial attitude with an ITRF velocity would turn the flow by the Earth's rotation angle, anywhere from 0° to 360°, without an error.
+- **Where the label list lives.** Its definitions are in `docs/plans/A4_attitude_and_flow_overview.md`. SP3 header names IGS08, IGb08, IGS14, IGb14, IGS20, ITRF2008, ITRF2014 and ITRF2020 map to `"ITRF"`.
+- **Later transforms.** Inertial attitude sources will need the workflow (Orekit, Track B) to give `body_from_ITRF`.
+
+**D-80. aero interpolates nothing: it is evaluated at epochs where the attitude, the velocity and the atmosphere are all given, and checks that their times match.** User, 2026-11-02. The workflow chooses the epochs and owns resampling and gap rules. Interpolating Cd or B instead of attitude would not remove the risk of a slew inside a data gap. Supersedes Q-13's proposal of `Slerp` with a gap limit.
+
+**D-81. `Attitude` holds epochs, `body_from_reference` (a scipy `Rotation`), a frame label and a source; converting quaternions requires the scalar position, the algebra (Hamilton or JPL) and the direction, with no defaults.** User, 2026-11-02. Resolves Q-13.
+
+- **The attitude law** builds the orbit frame from r and the inertial velocity. Which body axis points along the flight direction and which towards nadir are both required arguments.
+
+**D-82. Times are held as `Epochs`, the same instants as UTC, GPS and SPICE ET (TDB seconds past J2000), in `leodragkit/time_scales.py`, converted with spiceypy and NAIF's leap-second kernel `naif0012.tls`.** User, 2026-11-02.
+
+- **spiceypy is an approved dependency.** It gives exactly SPICE's ET, matching contigo_edr, and duplicates contigo's approach here rather than depending on contigo.
+- **The kernel** lives in a new `spice_kernels` data directory in the main config (an interface change), downloaded by an `io` module following the four-function template.
+- **aero never imports `time_scales`.** It receives times as arrays on one named scale.
+
+**D-83. Readers return one dataclass per kind of record, from `io/records.py`: `SatelliteStates` (epochs, positions m, velocities m/s, frame label, source; velocity required) and `AttitudeRecords` (epochs, quaternions as written, the file's conventions, frame label, a quality flag per epoch, source).** User, 2026-11-02.
+
+- **One reader module per file format.**
+- **Readers return every epoch with its flag;** `keep_observed` returns the observed ones and reports what it dropped, so both can be saved.
+- **Why a dataclass, not a `Protocol`.** A concrete type per kind is the contract, and a `Protocol` would add nothing while no two classes need to look alike.
+
+**D-84. Spire specifics, from the Spire Attitude and Navigation Product Summary (2021) and the user's files.**
+
+- **leoAtt (CHAMP format plus a flag):**
+  - quaternions are qx, qy, qz, qw, taking body vectors into Spire's orbit level frame (u′ = q u q*);
+  - the algebra is read as Hamilton, an assumption (Q-14);
+  - the orbit frame uses the inertial velocity, an assumption (Q-15);
+  - times are GPS;
+  - the flag meanings depend on the file version (1.2: 0 observed, 1 repeated, 2 default; 1.1: 0 real, 1 default), and an unknown version raises.
+- **SP3:** a `V` clock rate of 999999.999999 means "not estimated" and is ignored, not treated as a bad record.
+
+User, 2026-11-02. Details and references: `docs/plans/A4_attitude_and_flow_overview.md`.
+
+**D-85. Spire leoAtt quaternions are read as the header states, body to orbit level frame (u′ = q u q*), with Hamilton algebra; the orbit level frame uses the inertial velocity.** User, 2026-11-02. Resolves Q-14 and Q-15.
+
+- **Q-14, by the user's decision.** No document states the multiplication rule:
+  - Spire's product summary repeats the header formula only;
+  - the CDAAC page for COSMIC leoAtt files (https://cdaac-www.cosmic.ucar.edu/cdaac/cgi_bin/fileFormats.cgi?type=leoAtt, read 2026-11-02) gives the order (qx, qy, qz, qw) and the axis-angle meaning (qw = cos(θ/2)), but not the rule, and its `sca` formula is the conjugate of Spire's.
+
+  The header formula with Hamilton algebra is the natural reading and matches scipy.
+- **Q-15, on evidence.** COSMIC's leoAtt documentation defines its local level frame from position and velocity in an inertial frame (Inertial True-of-Epoch). Spire's summary describes an "orbit plane" and gives its onboard state in TEME. Spire has not confirmed it.
+- **The inertial velocity in ITRF axes.** It is computed as v_ITRF + ω_E × r, so no inertial frame is needed (D-79). The orbit-frame axes are directions, and building them in ITRF coordinates gives them where they are used.
+- **Revisit if Spire answers differently.** Each assumption is one argument in one place: the algebra when converting quaternions, the velocity when building the orbit frame.
+
 ## Licence
 
 **D-32. leodragkit is released under the MIT licence.** User, 2026-10-27. This is compatible with D-28: the aero code is written from the published equations, and ADBSat's GPL-3 code is used only as a test oracle, never copied or translated.
@@ -350,4 +398,8 @@ Proposal: Dey/Storch as the baseline, the fitted form later for the ADBSat compa
 - **Canonical form.** An `Attitude` dataclass holding a scipy `Rotation` named `body_from_reference`, plus the reference-frame name and a source. `frames.attitude_from_quaternions` converts files once, taking as required keyword arguments with no defaults: the scalar position, the quaternion algebra (Hamilton or JPL) and the rotation direction. scipy's `scalar_first` argument needs scipy ≥ 1.14.
 - **Frame check.** The workflow expresses the relative velocity in the attitude's reference frame; `drag_area.py` fails if the labels differ.
 - **Attitude law.** A simple velocity-and-nadir attitude law in `frames.py` (numpy only), for satellites without attitude data. Orekit's attitude laws come later, in `orbit/`.
-- **Data gaps.** Interpolation with `Slerp`, failing across any gap longer than a configured limit, with no default.
+- **Data gaps.** Interpolation with `Slerp`, failing across any gap longer than a configured limit, with no default. *Resolved 2026-11-02 by D-79 to D-81: attitude as proposed, but no interpolation in aero (D-80), so no `Slerp` or gap limit.*
+
+**Q-14. Which quaternion product convention do Spire's leoAtt files use, Hamilton or JPL?** The product summary repeats u′ = q u q* without saying. The user's sample fits both: the body points to nadir either way, and the readings differ only in the sign of a 14.6° yaw. Read as Hamilton until confirmed; the user is asking Spire. *Resolved 2026-11-02 by D-85: Hamilton, by the user's decision.*
+
+**Q-15. Which velocity defines Spire's orbit level frame: inertial, or Earth-fixed?** The summary's wording (an "orbit plane"; Y along −(r × v)) and the inertial (TEME) state in its telAtt product suggest inertial. Taken as inertial until confirmed; the two differ by up to about 3.8° in yaw for a 500 km orbit (an estimate). *Resolved 2026-11-02 by D-85: inertial, on evidence (CDAAC's COSMIC leoAtt documentation); not confirmed by Spire.*

@@ -81,7 +81,7 @@ A step can mix modes; the plan says which function is whose.
 
 ## Dependencies
 
-Approved: the standard library, `numpy`, `pandas`, `scipy`, `pyyaml`, `requests`, `pyarrow`, `orekit_jpype`, `pymsis`, `matplotlib`, `pytest`, `ruff` (formatting and linting, D-57); `plotly`, optional, imported only inside interactive 3-D plot functions (D-62); `trimesh`, in tests only (D-60); the separate density-model package once it exists (D-11). One install, no optional extras (D-06).
+Approved: the standard library, `numpy`, `pandas`, `scipy`, `pyyaml`, `requests`, `pyarrow`, `orekit_jpype`, `pymsis`, `matplotlib`, `pytest`, `ruff` (formatting and linting, D-57); `plotly`, optional, imported only inside interactive 3-D plot functions (D-62); `trimesh`, in tests only (D-60); `spiceypy`, for time scales (D-82); the separate density-model package once it exists (D-11). One install, no optional extras (D-06).
 
 Ask before adding anything else. Pin versions in `environment.yml`.
 
@@ -91,7 +91,7 @@ Ask before adding anything else. Pin versions in `environment.yml`.
 
 ```
 leodragkit/
-  config.py  cli.py  provenance.py
+  config.py  cli.py  provenance.py  time_scales.py
   io/          orbit data only: TLEs, SP3, attitude (space weather comes from the model package)
   density/     DensityModel Protocol, MSIS, toy exponential model
   aero/        flat plate, panel geometry, attitude, Cd·A(t) and B(t)

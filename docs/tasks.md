@@ -18,6 +18,7 @@ The tracks are interleaved or run one after the other, never in parallel.
 |---|---|---|---|---|---|
 | T-00 | Repository skeleton: `pyproject.toml` (name, `ldk` entry point, dependencies), `environment.yml`, empty subpackages with module docstrings, pytest markers, `docs/`, `.claude/` files, `.claude/settings.local.json` with swift_reentry in `additionalDirectories` | none | S | done (2026-10-27) | Still to confirm in a Claude Code session: reading swift_reentry works, editing it is refused. |
 | T-01 | Main config: output directory and one directory per data source, typed and validated | T-00 | S | done (2026-10-28) | D-33 to D-36. Everything else reads it. |
+| T-02 | Time scales: `Epochs` (UTC, GPS, SPICE ET) in `leodragkit/time_scales.py`, via spiceypy; `spice_kernels` data directory and the leap-second kernel downloader | T-01 | S | todo | D-82. Overview: `docs/plans/A4_attitude_and_flow_overview.md` |
 
 ## Track A: aero (first priority)
 
@@ -35,8 +36,12 @@ Plan and module layout: `docs/aero_plan.md`. Validation rungs V0–V7 are define
 | A3c | `aero/materials.py`, `aero/spacecraft.py` and YAML spacecraft descriptions (reader in `io/geometry_files.py`); the rotation form of a pose; the guide `docs/guides/describing_a_spacecraft.md` | A3b3 | M | done (2026-11-01) | D-58, D-59, D-66, D-72 to D-76. Step plan: `docs/plans/A3c_spacecraft_descriptions.md`. `_build_component` by the user |
 | A3d1 | `io/mesh_files.py`: binary and ASCII STL and OBJ readers, to metres; `shape: mesh` in descriptions with `load_spacecraft_description`; `build_spacecraft_from_triangles` | A3c | M | done (2026-11-01) | D-58, D-60, D-66, D-77. Step plan: `docs/plans/A3d1_meshes.md`. Parsers by the user; range check and single lookup added at review |
 | A3d2 | macro-model tables (CSV: component, material, normal, area, optional centroid) → a `Spacecraft` without triangles; `macro_model` descriptions; the guide's section 5b; the GRACE macro model (Bettadpur 2012) as a second example | A3d1 | S | done (2026-11-01) | D-56, D-63, D-78. Step plan: `docs/plans/A3d2_macro_models.md`. Row parsing by the user; cell helpers added at review |
-| A4 | `frames.py` (`Attitude`, a simple attitude law, `PanelFlowGeometry`, fixed component poses) and `flow_conditions.py` (`AeroAtmosphere`, `FlowConditions`); plot level 2 begins: flow direction on the spacecraft plot | A3b2 | M | todo | D-27, D-42, D-44, D-53. Q-13 first |
-| A5 | Constant `SurfaceInteraction`, `integration.py` and `drag_area.py`: force and moment vectors, drag, lift, side force, Cd·A, B(t), averaging; chunked over epochs, with a timing benchmark | A4 | M | todo | D-21, D-39, D-52, D-54. The workflow `drag_area_from_attitude` comes with it (W1). V2 meshed sphere, V3 |
+| I1 | `io/sp3_files.py` and `io/records.py`: `read_sp3_file` → `SatelliteStates` (frame from the header, velocity required) | T-02 | S | todo | D-79, D-83, D-84 |
+| I2 | `io/spire_attitude_files.py`: `read_spire_attitude_file` → `AttitudeRecords`, version-dependent flags, `keep_observed` | I1 | S | todo | D-83, D-84, D-85 |
+| A4a | `aero/frames.py`: `Attitude`, conversion from quaternions, the orbit frame from r and v, the attitude law, `"orbit_level_spire"` → `"ITRF"`, epoch and frame checks | I2 | M | todo | D-27, D-79, D-80, D-81 |
+| A4b | `PanelFlowGeometry` (cos δ, shear direction t̂); plot level 2 (the flow on the spacecraft) | A4a | S | todo | D-44, D-53, D-61 |
+| A4c | `aero/flow_conditions.py`: `AeroAtmosphere` → `FlowConditions` (speed ratios per species and mean, mass fractions) | A4b | S | todo | D-12, D-45, D-53 |
+| A5 | Constant `SurfaceInteraction`, `integration.py` and `drag_area.py`: force and moment vectors, drag, lift, side force, Cd·A, B(t), averaging; chunked over epochs, with a timing benchmark | A4c | M | todo | D-21, D-39, D-52, D-54. The workflow `drag_area_from_attitude` comes with it (W1). V2 meshed sphere, V3 |
 | A6 | Shadowing: centroid projection with self-exclusion; plot shadowed panels | A5 | M | todo | Plate-in-front-of-box, L-shape and convex-sphere cases. V3 |
 | A7 | Connect to `AtmosphereState`, with the mixed-model warning | A5, D1 | S | todo | D-10, D-12 |
 | A8 | `gas_surface_dria.py`: per-species Sentman, mass-weighted | A7 | S | todo | D-45. V1 |

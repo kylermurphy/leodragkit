@@ -38,7 +38,8 @@ paths:
 
 ## Quaternions
 
-- The scalar position (first or last) and the frame pair (from body frame to which frame) are required arguments with no defaults. A wrong convention silently turns ram faces into wake faces.
+- The scalar position (first or last), the algebra (Hamilton or JPL) and the direction (body to reference, or reference to body) are required arguments with no defaults. A wrong convention silently turns ram faces into wake faces (D-81).
+- Attitude and velocity must carry the same frame label, from the fixed list, and identical epochs; aero never interpolates (D-79, D-80).
 - For each new attitude source, test that the nadir-pointing body axis points down in the expected frame.
 
 ## Sources and licence

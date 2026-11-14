@@ -41,11 +41,11 @@ A module may add private helpers but no other public functions without the user'
 
 ## Parsing
 
-- **Standard columns.** Readers return standard column names with units (`epoch_utc`, `position_m`, `velocity_m_per_s`) and times in UTC.
+- **Standard records.** Readers return the record type for their kind, from `io/records.py`: `SatelliteStates` or `AttitudeRecords` (D-83), with units in field names and times as `Epochs` (UTC, GPS and SPICE ET, D-82).
 - **Malformed input raises** with the file name and line number. Never skip lines silently.
-- **SP3 headers are read, not assumed.** Take the time system, frame and sampling interval from the header; convert the time system explicitly (GPS to UTC) and record the frame. Positions are in km and velocities in dm/s in the file; convert them to m and m/s.
+- **SP3 headers are read, not assumed.** Take the time system, frame and sampling interval from the header. Map the frame name to a label from the fixed list (IGS08, IGb08, IGS14, IGb14, IGS20, ITRF2008, ITRF2014 and ITRF2020 → `"ITRF"`), and raise on any other. Positions are in km and velocities in dm/s in the file; convert them to m and m/s. A file without velocities raises (D-83). A `V` clock rate of 999999.999999 means "not estimated" (D-84).
 - **Overlaps and duplicates are reported, never dropped silently.** This applies to overlapping SP3 arcs, duplicate epochs, and position records without a matching velocity record. The caller decides what to do with them.
-- **Attitude readers** return the scalar position and frame pair with the quaternions (D-27). A reader is written only once a real file exists to test against.
+- **Attitude readers** return the quaternions as written, with the file's conventions (scalar position, algebra, direction) and frame label, and a quality flag for every epoch (D-27, D-83). Flags whose meaning depends on a file version are read by version; an unknown version raises (D-84). A reader is written only once a real file exists to test against.
 
 ## Tests
 
