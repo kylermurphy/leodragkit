@@ -17,7 +17,7 @@ What is read, and checked (D-79, D-83, D-84):
 
 Files may be plain text or compressed with gzip, bzip2 or xz, recognised from their first bytes.
 
-Read first: ``read_sp3_header``.
+Read first: ``read_sp3_header``, then ``_sp3_epoch`` and ``_sp3_vector``.
 """
 
 import bz2
@@ -27,6 +27,8 @@ import lzma
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+
+import numpy as np
 
 # Coordinate-system names in SP3 headers (a 5-column field: ITRF2014 is written ITR14, as the specification's
 # example ITR97) that are realisations of the ITRF, whose differences are millimetres. Any other name raises.
@@ -43,6 +45,9 @@ _COMPRESSED_OPENERS = {
     b"\xfd7zXZ\x00": lzma.open,
 }
 _UNSUPPORTED_SIGNATURES = {b"\x1f\x9d": "Unix compress (.Z)", b"PK\x03\x04": "zip"}
+
+# The specification's "bad or absent" clock value; treated as bad too if it appears in a position or velocity.
+SP3_ABSENT_VALUE = 999999.999999
 
 
 @dataclass(frozen=True)
@@ -162,3 +167,80 @@ def sp3_text_lines(path: str | Path) -> Iterator[str]:
     with io.TextIOWrapper(raw, encoding="ascii", errors="replace") as text:
         for line in text:
             yield line.rstrip("\r\n")
+
+
+def _sp3_epoch(line: str) -> np.datetime64:
+    """The time on an epoch line (``*``), as a ``datetime64[ns]`` on the file's own time scale.
+
+    Columns (SP3-c specification, "Line Twenty three"): 4–7 year, 9–10 month, 12–13 day, 15–16 hour,
+    18–19 minute, 21–31 seconds (with a fractional part, e.g. ``13.00000000``).
+
+    Raises
+    ------
+    ValueError
+        If a field is missing or is not a number, or the date or time does not exist. The caller adds the
+        file name and line number.
+
+    Example::
+
+        _sp3_epoch("*  2023 12 18  9 52 13.00000000")   # numpy.datetime64('2023-12-18T09:52:13.000000000')
+    """
+    # 1. The six fields, by column (Python slices count from 0: columns 4–7 are line[3:7]).
+    year = int(line[3:7].strip())
+    month = int(line[8:10].strip())
+    day = int(line[11:13].strip())
+    hour = int(line[14:16].strip())
+    minute = int(line[17:19].strip())
+    seconds = float(line[20:31].strip())
+    # 2. Whole minutes as a datetime64, np.datetime64(f"{year:04d}-{month:02d}-…", "ns"); a bad date raises.
+    epoch = np.datetime64(f"{year:04d}-{month:02d}-{day:02d}T{hour:02d}:{minute:02d}", "ns")
+    # 3. Add the seconds as integer nanoseconds: round(seconds * 1e9), so 13.00000000 is exactly 13 s.
+    epoch += np.timedelta64(round(seconds * 1e9), "ns")
+
+    return epoch
+
+
+def _sp3_vector(line: str) -> tuple[str, np.ndarray] | None:
+    """The satellite id and the three values on a ``P`` or ``V`` line, in the file's units, or None if bad.
+
+    Columns (SP3-c specification, "Line Twenty four" and "Line Twenty six"): 2–4 the satellite id (``134``,
+    ``G01``), 5–18 x, 19–32 y, 33–46 z: km for ``P``, dm/s for ``V``. The clock in 47–60 is not read.
+
+    Returns None, so the caller drops the record, when any of x, y and z is blank or not a number, when all
+    three are 0.000000 (the specification's "bad or absent"), or when one is ``SP3_ABSENT_VALUE``.
+
+    Example::
+
+        _sp3_vector("P134   6631.941824    281.807651   -657.598319  -4211.294181")
+        # ("134", array([6631.941824, 281.807651, -657.598319]))
+    """
+    # 1. The id from columns 2–4, without spaces.
+    sat_id = line[1:4].strip()
+    # 2. x, y and z from their 14-column fields; any blank or unparsable field → return None (a short line
+    #    gives an empty slice, which float() rejects too).
+    if len(line) < 46:
+        return None
+
+    x = _is_float(line[4:18].strip())
+    y = _is_float(line[18:32].strip())
+    z = _is_float(line[32:46].strip())
+
+    if any(value is None for value in (x, y, z)):
+        return None
+    # 3. All three exactly 0, or any equal to SP3_ABSENT_VALUE → None; otherwise (id, the three values).
+    sat_vec = [x, y, z]
+    if None in sat_vec or all(v==0 for v in sat_vec):
+        return None
+    else:
+        return (sat_id, np.array(sat_vec))
+
+
+def _is_float(value: str) -> float | None:
+    """Return value if the str can be converted to a float and if it's not abseent a value, None otherwise."""
+    if value == str(SP3_ABSENT_VALUE):
+        return None
+    try:
+        float(value)
+        return float(value)
+    except ValueError:
+        return None

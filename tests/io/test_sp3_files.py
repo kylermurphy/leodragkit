@@ -1,4 +1,4 @@
-"""Tests for SP3 files (task I1, component 2): the header, and opening plain and compressed files.
+"""Tests for SP3 files (task I1): the header and opening files (component 2); record parsing (component 3).
 
 The headers are written by the tests, laid out as in the SP3-c specification and as in Spire's leoOrb files
 (3-digit flight-module ids, IGS08, GPS time); Spire's own files are not committed.
@@ -10,9 +10,10 @@ import bz2
 import gzip
 import lzma
 
+import numpy as np
 import pytest
 
-from leodragkit.io.sp3_files import read_sp3_header, sp3_text_lines
+from leodragkit.io.sp3_files import _sp3_epoch, _sp3_vector, read_sp3_header, sp3_text_lines
 
 SPIRE_LIKE_HEADER = [
     "#cV2023 12 18 09 52 13.00000000    3306     d IGS08 FIT SPIR",
@@ -99,3 +100,60 @@ def test_unix_compress_and_zip_raise(tmp_path, start, kind):
 def test_a_missing_file_raises(tmp_path):
     with pytest.raises(FileNotFoundError):
         list(sp3_text_lines(tmp_path / "absent.sp3"))
+
+
+# --- _sp3_epoch and _sp3_vector (component 3) ----------------------------------------------------
+
+
+def test_an_epoch_line_gives_its_time_to_the_nanosecond():
+    assert _sp3_epoch("*  2023 12 18  9 52 13.00000000") == np.datetime64("2023-12-18T09:52:13", "ns")
+
+
+def test_fractional_seconds_are_kept():
+    assert _sp3_epoch("*  2023 12 18 23 59 59.50000000") == np.datetime64("2023-12-18T23:59:59.5", "ns")
+
+
+@pytest.mark.parametrize(
+    "line",
+    ["*  2023 13 18  9 52 13.00000000", "*  2023 12 18  9 52", "*  20x3 12 18  9 52 13.00000000"],
+    ids=["month 13", "no seconds", "not a number"],
+)
+def test_a_malformed_epoch_line_raises(line):
+    with pytest.raises(ValueError):
+        _sp3_epoch(line)
+
+
+def test_a_spire_position_line_gives_its_id_and_kilometres():
+    satellite_id, values = _sp3_vector("P134   6631.941824    281.807651   -657.598319  -4211.294181")
+    assert satellite_id == "134"
+    np.testing.assert_array_equal(values, [6631.941824, 281.807651, -657.598319])
+
+
+def test_a_velocity_line_ignores_the_absent_clock_rate():
+    satellite_id, values = _sp3_vector("V134  -6872.336763 -15088.591935 -76310.524044 999999.999999")
+    assert satellite_id == "134"
+    np.testing.assert_array_equal(values, [-6872.336763, -15088.591935, -76310.524044])
+
+
+def test_an_igs_style_id_is_read():
+    assert _sp3_vector("PG01 -11044.805800 -10475.672350  21929.418200    189.163300")[0] == "G01"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "P134      0.000000      0.000000      0.000000  -4211.294181",
+        "P134   6631.941824                 -657.598319  -4211.294181",
+        "P134   6631.941824    281.8x7651   -657.598319  -4211.294181",
+        "P134   6631.941824    281.807651",
+        "P134 999999.999999    281.807651   -657.598319  -4211.294181",
+    ],
+    ids=["all zero", "blank field", "not a number", "cut short", "absent value"],
+)
+def test_a_bad_record_gives_none(line):
+    assert _sp3_vector(line) is None
+
+
+def test_one_zero_component_is_not_bad():
+    # Only all three at 0.000000 means "bad or absent"; one zero coordinate is a real position.
+    assert _sp3_vector("P134   6631.941824      0.000000   -657.598319  -4211.294181") is not None
