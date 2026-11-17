@@ -309,6 +309,13 @@ User, 2026-11-02. Details and references: `docs/plans/A4_attitude_and_flow_overv
 - **The inertial velocity in ITRF axes.** It is computed as v_ITRF + ω_E × r, so no inertial frame is needed (D-79). The orbit-frame axes are directions, and building them in ITRF coordinates gives them where they are used.
 - **Revisit if Spire answers differently.** Each assumption is one argument in one place: the algebra when converting quaternions, the velocity when building the orbit frame.
 
+**D-86. In aero, times are a `datetime64[ns]` array plus a time-scale label, not `Epochs`; orbit states are aero's own `OrbitStates`; and a small `common_epochs` helper keeps the epochs two inputs share exactly.** User, 2026-11-03.
+
+- **Times.** aero only needs to know that its inputs refer to the same instants. Lining up attitude and orbit (GPS) with the atmosphere (UTC) is the workflow's job, using `Epochs`. So aero keeps importing nothing from `io` or `time_scales`, and needs neither spiceypy nor a kernel (D-04).
+- **`OrbitStates`** is built by the workflow from `io`'s `SatelliteStates`, the same pattern as `AeroAtmosphere`.
+- **`common_epochs` is selection, not interpolation** (D-80).
+- **JPL quaternions** are read as Hamilton and inverted, since JPL multiplication is Hamilton's in reverse order.
+
 ## Licence
 
 **D-32. leodragkit is released under the MIT licence.** User, 2026-10-27. This is compatible with D-28: the aero code is written from the published equations, and ADBSat's GPL-3 code is used only as a test oracle, never copied or translated.

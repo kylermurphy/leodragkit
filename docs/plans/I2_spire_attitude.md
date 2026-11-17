@@ -1,5 +1,7 @@
 # I2: Attitude records from Spire leoAtt files
 
+**Status: done 2026-11-03.**
+
 Step plan for task I2 in `docs/tasks.md`; part of the A4 group (`docs/plans/A4_attitude_and_flow_overview.md`). Four components, one patch each, reviewed and pushed before the next.
 
 ## Goal
