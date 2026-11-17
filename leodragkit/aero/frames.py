@@ -235,23 +235,24 @@ def itrf_from_orbit_level(positions_m: ArrayLike, inertial_velocities_m_per_s: A
         rotation = itrf_from_orbit_level([[6.67e6, 0, 0]], [[0, 7.8e3, 0]])
         rotation.apply([1, 0, 0])   # [[0, 1, 0]]: X along the velocity
     """
-    # 1. r and v as (T, 3) float arrays; r × v and the lengths |r| and |r × v|; raise for a zero one.
-    r = positions_m
-    v = inertial_velocities_m_per_s
-
-    r_l = np.linalg.norm(r,axis=0)
-    rxv_l = np.linalg.norm(np.cross(r,v),axis=0)
-
-    if np.any(r_l==0) or np.any(rxv_l==0):
-        raise ValueError("|r| and |r x v| cannot be zero.")
+     # 1. r and v as (T, 3) float arrays; r × v and the lengths |r| and |r × v|; raise for a zero one.
+    r = np.atleast_2d(np.asarray(positions_m, dtype=float))
+    v = np.atleast_2d(np.asarray(inertial_velocities_m_per_s, dtype=float))
+    r_cross_v = np.cross(r, v)
+    r_length = np.linalg.norm(r, axis=1)
+    r_cross_v_length = np.linalg.norm(r_cross_v, axis=1)
+    undefined = (r_length == 0) | (r_cross_v_length == 0)
+    if np.any(undefined):
+        epoch = int(np.flatnonzero(undefined)[0])
+        raise ValueError(f"epoch {epoch}: r or r × v is 0, so the orbit frame is undefined there.")
 
     # 2. Z, Y and X as (T, 3) unit vectors, in that order.
-    z = -(r/r_l)
-    y = -(np.cross(r,v)/rxv_l)
-    x = np.cross(y,z)
-    # 3. The matrices with X, Y, Z as columns: np.stack([X, Y, Z], axis=-1) has shape (T, 3, 3); then
-    #    Rotation.from_matrix.
-    return Rotation.from_matrix(np.stack([x,y,z],axis=-1))
+    z_axis = -r / r_length[:, np.newaxis]  # nadir
+    y_axis = -r_cross_v / r_cross_v_length[:, np.newaxis]  # opposite the orbit's angular momentum
+    x_axis = np.cross(y_axis, z_axis)  # along the part of v perpendicular to r
+
+    # 3. The matrices with X, Y, Z as columns, then the rotations.
+    return Rotation.from_matrix(np.stack([x_axis, y_axis, z_axis], axis=-1))
 
 
 def attitude_from_law(states: OrbitStates, *, along_velocity: str, towards_nadir: str) -> Attitude:
