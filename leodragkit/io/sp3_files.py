@@ -26,8 +26,6 @@ import bz2
 import gzip
 import io
 import lzma
-import sys
-import warnings
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -35,6 +33,7 @@ from pathlib import Path
 import numpy as np
 
 from leodragkit.io.records import SatelliteStates, input_record_for
+from leodragkit.io.repeated_warnings import warn_every_time
 from leodragkit.time_scales import epochs_from_gps, epochs_from_utc
 
 # Coordinate-system names in SP3 headers (a 5-column field: ITRF2014 is written ITR14, as the specification's
@@ -200,11 +199,12 @@ def read_sp3_file(path: str | Path, kernel, satellite_id: str | None = None) -> 
     if dropped_lines:
         shown = ", ".join(str(line) for line in dropped_lines[:10])
         more = "" if len(dropped_lines) <= 10 else f" and {len(dropped_lines) - 10} more"
-        _warn_every_time(
+        warn_every_time(
             f"{file_path.name}: {len(dropped_lines)} record lines for satellite {satellite_id!r} were "
             "dropped "
             f"(bad, unmatched or repeated): lines {shown}{more}. Kept: {len(times)} epochs.",
             Sp3RecordsDroppedWarning,
+            caller_depth=1,
         )
 
     # 5. The states, on Epochs from the file's own time system.
@@ -391,13 +391,3 @@ def _sp3_vector(line: str) -> tuple[str, np.ndarray] | None:
     if not np.all(np.isfinite(values)) or np.all(values == 0) or np.any(values == SP3_ABSENT_VALUE):
         return None
     return satellite_id, values
-
-
-def _warn_every_time(message: str, category: type[Warning]) -> None:
-    """Issue a warning Python will not hide as a repeat, pointing at the caller of ``read_sp3_file``.
-
-    DUPLICATE OF leodragkit/aero/repeated_warnings.py::warn_every_time: io may not import aero (D-03, D-04).
-    A third copy would move both to one module that every subpackage may import.
-    """
-    frame = sys._getframe(2)  # 0 is this function, 1 is read_sp3_file, 2 is its caller
-    warnings.warn_explicit(message, category, frame.f_code.co_filename, frame.f_lineno)

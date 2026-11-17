@@ -1,5 +1,7 @@
 # I1: Satellite states from SP3 files
 
+**Status: done 2026-11-03.** The warning helper moved to `io/repeated_warnings.py` in I2, when `keep_observed` became its third use.
+
 Step plan for task I1 in `docs/tasks.md`; part of the A4 group (`docs/plans/A4_attitude_and_flow_overview.md`). Four components, one patch each, reviewed and pushed before the next.
 
 ## Goal
