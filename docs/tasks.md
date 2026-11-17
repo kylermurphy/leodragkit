@@ -18,7 +18,7 @@ The tracks are interleaved or run one after the other, never in parallel.
 |---|---|---|---|---|---|
 | T-00 | Repository skeleton: `pyproject.toml` (name, `ldk` entry point, dependencies), `environment.yml`, empty subpackages with module docstrings, pytest markers, `docs/`, `.claude/` files, `.claude/settings.local.json` with swift_reentry in `additionalDirectories` | none | S | done (2026-10-27) | Still to confirm in a Claude Code session: reading swift_reentry works, editing it is refused. |
 | T-01 | Main config: output directory and one directory per data source, typed and validated | T-00 | S | done (2026-10-28) | D-33 to D-36. Everything else reads it. |
-| T-02 | Time scales: `Epochs` (UTC, GPS, SPICE ET) in `leodragkit/time_scales.py`, via spiceypy; `spice_kernels` data directory and the leap-second kernel downloader | T-01 | S | in progress (component 2 of 2) | D-82. Overview: `docs/plans/A4_attitude_and_flow_overview.md`; step plan: `docs/plans/T-02_time_scales.md` |
+| T-02 | Time scales: `Epochs` (UTC, GPS, SPICE ET) in `leodragkit/time_scales.py`, via spiceypy; `spice_kernels` data directory and the leap-second kernel downloader | T-01 | S | done (2026-11-03) | D-82. Overview: `docs/plans/A4_attitude_and_flow_overview.md`; step plan: `docs/plans/T-02_time_scales.md` |
 
 ## Track A: aero (first priority)
 
@@ -36,7 +36,7 @@ Plan and module layout: `docs/aero_plan.md`. Validation rungs V0–V7 are define
 | A3c | `aero/materials.py`, `aero/spacecraft.py` and YAML spacecraft descriptions (reader in `io/geometry_files.py`); the rotation form of a pose; the guide `docs/guides/describing_a_spacecraft.md` | A3b3 | M | done (2026-11-01) | D-58, D-59, D-66, D-72 to D-76. Step plan: `docs/plans/A3c_spacecraft_descriptions.md`. `_build_component` by the user |
 | A3d1 | `io/mesh_files.py`: binary and ASCII STL and OBJ readers, to metres; `shape: mesh` in descriptions with `load_spacecraft_description`; `build_spacecraft_from_triangles` | A3c | M | done (2026-11-01) | D-58, D-60, D-66, D-77. Step plan: `docs/plans/A3d1_meshes.md`. Parsers by the user; range check and single lookup added at review |
 | A3d2 | macro-model tables (CSV: component, material, normal, area, optional centroid) → a `Spacecraft` without triangles; `macro_model` descriptions; the guide's section 5b; the GRACE macro model (Bettadpur 2012) as a second example | A3d1 | S | done (2026-11-01) | D-56, D-63, D-78. Step plan: `docs/plans/A3d2_macro_models.md`. Row parsing by the user; cell helpers added at review |
-| I1 | `io/sp3_files.py` and `io/records.py`: `read_sp3_file` → `SatelliteStates` (frame from the header, velocity required) | T-02 | S | todo | D-79, D-83, D-84 |
+| I1 | `io/sp3_files.py` and `io/records.py`: `read_sp3_file` → `SatelliteStates` (frame from the header, velocity required) | T-02 | S | in progress (component 1 of 4) | D-79, D-83, D-84. Step plan: `docs/plans/I1_sp3_states.md` |
 | I2 | `io/spire_attitude_files.py`: `read_spire_attitude_file` → `AttitudeRecords`, version-dependent flags, `keep_observed` | I1 | S | todo | D-83, D-84, D-85 |
 | A4a | `aero/frames.py`: `Attitude`, conversion from quaternions, the orbit frame from r and v, the attitude law, `"orbit_level_spire"` → `"ITRF"`, epoch and frame checks | I2 | M | todo | D-27, D-79, D-80, D-81 |
 | A4b | `PanelFlowGeometry` (cos δ, shear direction t̂); plot level 2 (the flow on the spacecraft) | A4a | S | todo | D-44, D-53, D-61 |

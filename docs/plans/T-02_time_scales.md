@@ -1,5 +1,7 @@
 # T-02: Time scales
 
+**Status: done 2026-11-03.**
+
 Step plan for task T-02 in `docs/tasks.md`; the first step of the A4 group (`docs/plans/A4_attitude_and_flow_overview.md`). Three components, one patch each, reviewed and pushed before the next (D-82).
 
 ## Goal
