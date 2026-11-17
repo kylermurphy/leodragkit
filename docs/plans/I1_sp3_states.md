@@ -29,8 +29,8 @@ Source: Hilla, S., *The Extended Standard Product 3 Orbit Format (SP3-c)*, Natio
 | --- | --- | --- |
 | 1 | `SatelliteStates` in `io/records.py`, with its checks; this plan | Claude |
 | 2 | the header (`read_sp3_header`): version, velocity flag, frame name → `"ITRF"` (IGS08, IGb08, IGS14, IGb14, IGS20, ITR08, ITR14, ITR20; others raise; the field is 5 columns wide), time system, satellite ids; opening plain, gzip, bzip2 and xz files (`sp3_text_lines`, standard library, detected from the first bytes) | Claude (done) |
-| 3 | `_sp3_epoch(line)` and `_sp3_vector(line)`: the fixed-column parsers, returning `None` for a bad record | user (template in place) |
-| 4 | `read_sp3_file(path, kernel, satellite_id=None)`: each `P` paired with the `V` after it; bad pairs, unmatched positions and repeated (satellite, epoch) records dropped and their line numbers kept; one warning with the counts | Claude, porting contigo_edr's `df_sp3` rules (without pandas) |
+| 3 | `_sp3_epoch(line)` and `_sp3_vector(line)`: the fixed-column parsers, returning `None` for a bad record | user (done; three edge cases fixed at review, in component 4) |
+| 4 | `read_sp3_file(path, kernel, satellite_id=None)` (done): each `P` paired with the `V` after it; bad pairs, unmatched positions and repeated (satellite, epoch) records dropped and their line numbers kept; one warning with the counts | Claude, porting contigo_edr's `df_sp3` rules (without pandas) |
 
 ## Decisions in this step
 
@@ -101,6 +101,35 @@ At the start: 14 failed (all `NotImplementedError`), 344 passed. Against a scrat
 - **Seconds to nanoseconds.** Use `round(seconds * 1e9)` as an integer `timedelta64`; adding a float would lose the exact second.
 - **A short line gives an empty slice,** and `float("")` raises `ValueError`, which should become `None` in `_sp3_vector` but stay an error in `_sp3_epoch`.
 - **Only all three zero is bad.** A single 0.000000 coordinate can be real.
+
+## Review of component 3, applied in component 4
+
+All tests passed. Probing beyond them found three edge cases:
+
+- **A NaN or infinite field was accepted** as a record. It is now bad (`None`), so it is dropped with its line number instead of failing the whole file later.
+- **The absent value was compared as a string,** so `999999.9999990` slipped through as a coordinate of 10⁶ km. It is now compared as a number.
+- **A 60-second epoch rolled into the next minute** and collided with the real one. `_sp3_epoch` now raises for seconds outside [0, 60), as `Epochs` does for leap seconds.
+
+Tidying: one `try` around the three fields replaces the `_is_float` helper; the repeated `None` check and the `else` after `return` are removed. Three test cases were added.
+
+## Component 4: `read_sp3_file`
+
+Steps: lines and header; which satellite; walk the records from the first non-header line, pairing each `P` with the `V` after it; the drop rules; at least one good record; sort; one warning; `SatelliteStates` on `Epochs` from the file's time system (GPS or UTC); km → m, dm/s → m/s.
+
+`Sp3RecordsDroppedWarning` is shown every time. Its helper duplicates `aero/repeated_warnings.py::warn_every_time`, marked as such, because `io` may not import `aero`; a third use would move both into one shared module.
+
+**Tests (component 4):** 10.
+
+- a clean file in metres, with GPS and UTC epochs;
+- a bad position and a bad velocity, each dropping its pair, with the lines named in the warning;
+- a `P` without its `V`, and a `V` without a `P`;
+- a repeated epoch (the first kept);
+- epochs out of order, sorted;
+- several satellites, needing one chosen;
+- a UTC file;
+- a malformed epoch, a record before any epoch, and no good record, each raising with its line.
+
+**Checked against the user's file** (exploration; the file is not committed): 3306 states, IGS08 → ITRF, satellite `134`, nothing dropped and no warning, 1 s steps throughout. UTC runs 09:51:55 to 10:47:00 (GPS − 18 s). |r| is 6665.2–6672.7 km and |v| 7781.0–7809.4 m/s. The central difference of the positions agrees with the file's velocities to 2 mm/s, which confirms the dm/s units and that both are in the same Earth-fixed frame.
 
 ## Done when
 
