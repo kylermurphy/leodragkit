@@ -28,7 +28,7 @@ Source: Hilla, S., *The Extended Standard Product 3 Orbit Format (SP3-c)*, Natio
 | # | Builds | Who |
 | --- | --- | --- |
 | 1 | `SatelliteStates` in `io/records.py`, with its checks; this plan | Claude |
-| 2 | the header: version, velocity flag, frame name → `"ITRF"` (IGS08, IGb08, IGS14, IGb14, IGS20, ITRF2008, ITRF2014, ITRF2020; others raise), time system; opening plain, gzip, bzip2 and xz files (standard library, detected from the first bytes) | Claude |
+| 2 | the header (`read_sp3_header`): version, velocity flag, frame name → `"ITRF"` (IGS08, IGb08, IGS14, IGb14, IGS20, ITR08, ITR14, ITR20; others raise; the field is 5 columns wide), time system, satellite ids; opening plain, gzip, bzip2 and xz files (`sp3_text_lines`, standard library, detected from the first bytes) | Claude (done) |
 | 3 | `_sp3_epoch(line)` and `_sp3_vector(line)`: the fixed-column parsers, returning `None` for a bad record | user |
 | 4 | `read_sp3_file(path, kernel, satellite_id=None)`: each `P` paired with the `V` after it; bad pairs, unmatched positions and repeated (satellite, epoch) records dropped and their line numbers kept; one warning with the counts | Claude, porting contigo_edr's `df_sp3` rules (without pandas) |
 
@@ -70,4 +70,16 @@ Checked whenever created:
 
 ## Done when
 
-All four components are pushed. A Spire leoOrb file from the user reads into `SatelliteStates`, with `frame_as_written` `IGS14`, GPS epochs, and positions of about 6.9 × 10⁶ m. The tests cover each rule, using small SP3 files written by the tests.
+All four components are pushed. The user's Spire leoOrb file reads into `SatelliteStates`, with `frame_as_written` `IGS08`, 3306 GPS epochs, and |r| of about 6.67 × 10⁶ m. The tests cover each rule, using small SP3 files written by the tests.
+
+## The user's Spire file (component 2)
+
+`spire_nav_L1B_leoOrb_v06_02_2023-12-18T09-51-49_FM134.sp3` (not committed: Spire data), read 2026-11-03, shows the real layout:
+
+- `#cV` (SP3-c, with velocities); coordinate system **IGS08** (not IGS14); time system GPS; satellite id `134`, the flight-module number, as its comment line explains;
+- 3306 epochs at 1 s, each with one `P` and one `V` record;
+- clocks present in `P`, and 999999.999999 in `V`;
+- lines no longer than 60 characters (no standard-deviation fields);
+- |r| from 6665 to 6673 km, an altitude of about 290 km, and speeds of 7.78–7.81 km/s.
+
+`read_sp3_header` reads it as version c, IGS08 → ITRF, GPS, satellites (`134`,), 3306 epochs.

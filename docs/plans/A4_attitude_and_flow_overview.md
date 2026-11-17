@@ -23,7 +23,7 @@ Each component is its own patch: the user reviews and pushes it before the next.
 
 | Label | Definition |
 | --- | --- |
-| `"ITRF"` | the International Terrestrial Reference Frame; SP3 headers naming IGS08, IGb08, IGS14, IGb14, IGS20, ITRF2008, ITRF2014 or ITRF2020 map to it (their differences are millimetres) |
+| `"ITRF"` | the International Terrestrial Reference Frame; SP3 headers naming IGS08, IGb08, IGS14, IGb14, IGS20, ITR08, ITR14 or ITR20 map to it (their differences are millimetres) |
 | `"orbit_level_spire"` | Spire's orbit level frame (leoAtt header; the Spire product summary, Appendix A.2): Z = −r/\|r\| (nadir), Y = −(r × v)/\|r × v\|, X = Y × Z, with **v the inertial velocity**, computed in ITRF axes as v_ITRF + ω_E × r (D-85) |
 
 ## Time (D-82)

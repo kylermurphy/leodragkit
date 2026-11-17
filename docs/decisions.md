@@ -263,8 +263,10 @@ A single rotation about one axis avoids the ordering ambiguity of Euler angles, 
 
 - **Why the relative velocity needs no transform.** The atmosphere co-rotates with the Earth (D-25), so the satellite's velocity relative to the air is its Earth-fixed velocity.
 - **Why the labels are checked.** Mixing an inertial attitude with an ITRF velocity would turn the flow by the Earth's rotation angle, anywhere from 0° to 360°, without an error.
-- **Where the label list lives.** Its definitions are in `docs/plans/A4_attitude_and_flow_overview.md`. SP3 header names IGS08, IGb08, IGS14, IGb14, IGS20, ITRF2008, ITRF2014 and ITRF2020 map to `"ITRF"`.
+- **Where the label list lives.** Its definitions are in `docs/plans/A4_attitude_and_flow_overview.md`. SP3 header names IGS08, IGb08, IGS14, IGb14, IGS20, ITR08, ITR14 and ITR20 map to `"ITRF"`.
 - **Later transforms.** Inertial attitude sources will need the workflow (Orekit, Track B) to give `body_from_ITRF`.
+
+*Corrected 2026-11-03: the header names are written ITR08, ITR14 and ITR20, not ITRF2008, ITRF2014 and ITRF2020: SP3's coordinate-system field is 5 columns wide (the specification's own example is ITR97).*
 
 **D-80. aero interpolates nothing: it is evaluated at epochs where the attitude, the velocity and the atmosphere are all given, and checks that their times match.** User, 2026-11-02. The workflow chooses the epochs and owns resampling and gap rules. Interpolating Cd or B instead of attitude would not remove the risk of a slew inside a data gap. Supersedes Q-13's proposal of `Slerp` with a gap limit.
 
