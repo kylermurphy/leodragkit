@@ -18,7 +18,7 @@ The tracks are interleaved or run one after the other, never in parallel.
 |---|---|---|---|---|---|
 | T-00 | Repository skeleton: `pyproject.toml` (name, `ldk` entry point, dependencies), `environment.yml`, empty subpackages with module docstrings, pytest markers, `docs/`, `.claude/` files, `.claude/settings.local.json` with swift_reentry in `additionalDirectories` | none | S | done (2026-10-27) | Still to confirm in a Claude Code session: reading swift_reentry works, editing it is refused. |
 | T-01 | Main config: output directory and one directory per data source, typed and validated | T-00 | S | done (2026-10-28) | D-33 to D-36. Everything else reads it. |
-| T-02 | Time scales: `Epochs` (UTC, GPS, SPICE ET) in `leodragkit/time_scales.py`, via spiceypy; `spice_kernels` data directory and the leap-second kernel downloader | T-01 | S | in progress (component 1 of 3) | D-82. Overview: `docs/plans/A4_attitude_and_flow_overview.md`; step plan: `docs/plans/T-02_time_scales.md` |
+| T-02 | Time scales: `Epochs` (UTC, GPS, SPICE ET) in `leodragkit/time_scales.py`, via spiceypy; `spice_kernels` data directory and the leap-second kernel downloader | T-01 | S | in progress (component 2 of 2) | D-82. Overview: `docs/plans/A4_attitude_and_flow_overview.md`; step plan: `docs/plans/T-02_time_scales.md` |
 
 ## Track A: aero (first priority)
 

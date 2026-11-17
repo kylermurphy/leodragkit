@@ -31,6 +31,8 @@ The skeleton and the main config exist so far (tasks T-00, T-01):
 - `leodragkit/aero/materials.py` (task A3c): `SurfaceMaterial`, a surface's wall temperature and accommodation, with no defaults.
 - `leodragkit/aero/spacecraft.py` (task A3c): `Spacecraft` and `build_spacecraft`, which checks a description, builds each component and attaches the materials. Read `build_spacecraft` first; `_build_component` builds one checked entry. The format is in `docs/guides/describing_a_spacecraft.md`.
 - `leodragkit/aero/repeated_warnings.py`: `warn_every_time`, for warnings Python must not hide as repeats.
+- `leodragkit/time_scales.py` (task T-02): `Epochs`, the same instants as UTC, GPS and SPICE ET; build with `epochs_from_utc`, `epochs_from_gps` or `epochs_from_et` and the leap-second kernel. GPS ↔ UTC from the kernel's table; UTC ↔ ET through spiceypy. `aero` never imports it.
+- `tests/test_time_scales.py`: fixed values (GPS − UTC, ET at J2000), round trips across the 2017 leap second, and leap-second handling; the test kernel is in `tests/conftest.py`.
 - `leodragkit/io/http_download.py` (task T-02): `download_file`, the shared atomic downloader (a `.part` file, renamed when complete; timeout and User-Agent on every request).
 - `leodragkit/io/records.py`: records readers return; for now `InputRecord` (path, size, modification time, SHA-256; D-15). `SatelliteStates` and `AttitudeRecords` arrive in I1 and I2.
 - `leodragkit/io/spice_kernels.py` (task T-02): the leap-second kernel `naif0012.tls`, in the four-function template; never re-downloaded, its SHA-256 pinned. Step plan: `docs/plans/T-02_time_scales.md`.
