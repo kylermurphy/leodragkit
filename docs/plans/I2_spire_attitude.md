@@ -33,8 +33,8 @@ From Spire's *Attitude and Navigation Product Summary* (2021, §2.1.2) and the u
 | --- | --- | --- |
 | 1 | `AttitudeRecords` and `keep_observed` in `io/records.py`; `io/repeated_warnings.py` (the warning helper `sp3_files.py` had, now shared by io's readers); this plan | Claude (this patch) |
 | 2 | the header (`read_spire_attitude_header`): version → flag meanings, satellite, `sca`, the GPS reference; `io/text_files.py` (plain or compressed text lines, shared with the SP3 reader) | Claude (done) |
-| 3 | `_attitude_epoch(tim_line)` → (GPS time, flag) and `_attitude_quaternion(sca_line)` → 4 numbers | user (template in place) |
-| 4 | `read_spire_attitude_file(path, kernel)`: `tim` paired with the `sca` after it; drop rules as in SP3 (unmatched, unparsable, non-finite, length not 1 within 10⁻⁶, repeated epochs), lines kept, one warning; `Epochs` from GPS; the conventions attached | Claude |
+| 3 | `_attitude_epoch(tim_line)` → (GPS time, flag) and `_attitude_quaternion(sca_line)` → 4 numbers | user (done; three edge cases fixed at review, in component 4) |
+| 4 | `read_spire_attitude_file(path, kernel)` (done): `tim` paired with the `sca` after it; drop rules as in SP3 (unmatched, unparsable, non-finite, length not 1 within 10⁻⁶, repeated epochs), lines kept, one warning; `Epochs` from GPS; the conventions attached | Claude |
 
 ## Decisions in this step (the user's answers, 2026-11-03)
 
@@ -124,6 +124,47 @@ At the start: 18 failed (all `NotImplementedError`), 397 passed. Against a scrat
 - **The flag must be a whole number:** `int("1.5")` raises, which is what the test wants; don't convert through `float` first.
 - **Seconds** become integer nanoseconds (`round(seconds * 1e9)`), as in `_sp3_epoch`.
 - **`str.split()` with no argument** splits on any run of spaces, which these lines need (`18  7 57`).
+
+## Review of component 3, applied in component 4
+
+All tests passed. Probing beyond them found three edge cases:
+
+- **`tim 2023.7 …` and a month of `12.9` were accepted,** truncated to 2023 and 12, because the fields went through `float` before `int`. Whole-number fields (year, month, day, hour, minute, flag) are now parsed with `int()` directly, which rejects them, and a decimal flag such as `1.0` too.
+- **`tim inf …` raised `OverflowError`,** not `ValueError`, so the reader could not name the line. `int("inf")` now raises `ValueError`.
+- **An empty `sca` line raised `IndexError`** (`fields[0]` of nothing). The field count is now checked first, so an empty line is simply a bad record.
+
+Also: errors show the offending line; the length check reads `abs(|q| − 1) > tolerance`, rather than `np.allclose` with its hidden absolute tolerance. Three test cases were added: a fractional year, an infinite year, an empty line.
+
+## Component 4: `read_spire_attitude_file`
+
+Steps:
+
+1. the lines and the header;
+2. walk from the first non-header line (so a stray record before the first `tim` is dropped, not hidden in the header), pairing each `tim` with the `sca` after it;
+3. at least one good record; sort;
+4. one `AttitudeRecordsDroppedWarning` (shown every time);
+5. `AttitudeRecords` on `Epochs` from GPS, with `SPIRE_ATTITUDE_CONVENTIONS` attached.
+
+It **raises**, naming the line, for a malformed `tim`, a flag the version doesn't define, or a line that is none of `tim`, `sca`, `%eof` or blank. It **drops**, keeping the lines:
+
+- a bad `sca` (both lines);
+- an unmatched `tim` or `sca`;
+- a repeated epoch (the later one).
+
+Lines after `%eof` are not read.
+
+**Tests (component 4):** 10.
+
+- a clean version 1.2 file: every flag and convention, and UTC = GPS − 18 s;
+- a version 1.1 file;
+- flag 3 in version 1.2 raises with its line; a malformed `tim` raises with its line;
+- a bad quaternion drops its pair, with the lines in the warning;
+- unmatched `tim` and `sca` dropped;
+- a repeated epoch keeps the first, and the records are sorted;
+- `%eof` ends the file;
+- an unknown line, and nothing good, each raise.
+
+**Checked against the user's file** (exploration; not committed): 7561 records, version 1.2, FM134, frame `"orbit_level_spire"`, Hamilton, nothing dropped and no `AttitudeRecordsDroppedWarning`. Flags: observed 6284, repeated 726, default 551; `keep_observed` gives 6284, with one warning naming the counts. UTC runs 07:57:00–10:03:00 (GPS − 18 s).
 
 ## The user's file
 
