@@ -32,7 +32,7 @@ From Spire's *Attitude and Navigation Product Summary* (2021, §2.1.2) and the u
 | # | Builds | Who |
 | --- | --- | --- |
 | 1 | `AttitudeRecords` and `keep_observed` in `io/records.py`; `io/repeated_warnings.py` (the warning helper `sp3_files.py` had, now shared by io's readers); this plan | Claude (this patch) |
-| 2 | the header: version → flag meanings, satellite, `sca`, the time reference | Claude |
+| 2 | the header (`read_spire_attitude_header`): version → flag meanings, satellite, `sca`, the GPS reference; `io/text_files.py` (plain or compressed text lines, shared with the SP3 reader) | Claude (done) |
 | 3 | `_attitude_epoch(tim_line)` → (GPS time, flag) and `_attitude_quaternion(sca_line)` → 4 numbers | user |
 | 4 | `read_spire_attitude_file(path, kernel)`: `tim` paired with the `sca` after it; drop rules as in SP3 (unmatched, unparsable, non-finite, length not 1 within 10⁻⁶, repeated epochs), lines kept, one warning; `Epochs` from GPS; the conventions attached | Claude |
 
@@ -73,6 +73,27 @@ Checked whenever created:
 - version 1.1 meanings;
 - ten inconsistent fields, each named;
 - repeated epochs.
+
+## Component 2: the header
+
+`read_spire_attitude_header(lines, file_name)` reads up to the first `tim` line:
+
+- **Line 1** must start `%spire`; the word after `version` must be a known version (`1.1` or `1.2`), whose flag meanings come from `SPIRE_ATTITUDE_FLAG_MEANINGS` (a copy, so a caller can't alter the table).
+- **`+satellite`** gives the satellite (its last word, e.g. `FM134`).
+- **`+data_____`** must be `sca`; **`+reference`** must be `gps`.
+
+`SPIRE_ATTITUDE_CONVENTIONS` holds the conventions every leoAtt file uses (scalar last, Hamilton, body to reference, `"orbit_level_spire"`), for component 4 to attach.
+
+Opening files moved to `io/text_files.py` (`text_lines`), now shared by the SP3 and attitude readers. `sp3_text_lines` remains as a thin wrapper, so nothing that used it changes.
+
+**Tests (component 2):** 8.
+
+- a version 1.2 header, laid out as the user's file, with three meanings;
+- a version 1.1 header, as in the summary's Figure 2, with two meanings (1 means default there, not repeated);
+- five reasons a header is refused: an unknown version, an SP3 file, no satellite, other data, UTC times;
+- the meanings returned are a copy.
+
+The user's file reads as version `1.2`, meanings {0: observed, 1: repeated, 2: default}, satellite `FM134`, with records from line 19.
 
 ## The user's file
 

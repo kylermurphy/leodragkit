@@ -17,15 +17,12 @@ What is read, and checked (D-79, D-83, D-84):
   metres and metres per second. Bad records are dropped by the rules in ``read_sp3_file``, their line
   numbers kept, and one ``Sp3RecordsDroppedWarning`` summarises them.
 
-Files may be plain text or compressed with gzip, bzip2 or xz, recognised from their first bytes.
+Files may be plain text or compressed with gzip, bzip2 or xz, recognised from their first bytes
+(``io/text_files.py``).
 
 Read first: ``read_sp3_file``, then ``read_sp3_header``, ``_sp3_epoch`` and ``_sp3_vector``.
 """
 
-import bz2
-import gzip
-import io
-import lzma
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -34,6 +31,7 @@ import numpy as np
 
 from leodragkit.io.records import SatelliteStates, input_record_for
 from leodragkit.io.repeated_warnings import warn_every_time
+from leodragkit.io.text_files import text_lines
 from leodragkit.time_scales import epochs_from_gps, epochs_from_utc
 
 # Coordinate-system names in SP3 headers (a 5-column field: ITRF2014 is written ITR14, as the specification's
@@ -43,14 +41,6 @@ SP3_FRAME_NAMES = {
 }
 SP3_TIME_SYSTEMS = ("GPS", "UTC")
 SP3_VERSIONS = ("c", "d")
-
-# The first bytes of each compressed format, and how to open it as text.
-_COMPRESSED_OPENERS = {
-    b"\x1f\x8b": gzip.open,
-    b"BZh": bz2.open,
-    b"\xfd7zXZ\x00": lzma.open,
-}
-_UNSUPPORTED_SIGNATURES = {b"\x1f\x9d": "Unix compress (.Z)", b"PK\x03\x04": "zip"}
 
 # The specification's "bad or absent" clock value; treated as bad too if it appears in a position or velocity.
 SP3_ABSENT_VALUE = 999999.999999
@@ -297,35 +287,8 @@ def read_sp3_header(lines: list[str], file_name: str) -> Sp3Header:
 
 
 def sp3_text_lines(path: str | Path) -> Iterator[str]:
-    """The lines of an SP3 file, without line endings, whether plain or compressed (gzip, bzip2, xz).
-
-    Raises
-    ------
-    FileNotFoundError
-        If there is no file.
-    ValueError
-        If the file is Unix-compressed (.Z) or a zip archive, which are not read.
-    """
-    # 1. The format, from the first bytes.
-    file_path = Path(path).expanduser()
-    if not file_path.is_file():
-        raise FileNotFoundError(f"No SP3 file at {file_path}.")
-    with file_path.open("rb") as file:
-        start = file.read(8)
-    for signature, kind in _UNSUPPORTED_SIGNATURES.items():
-        if start.startswith(signature):
-            raise ValueError(
-                f"{file_path.name} is {kind}-compressed, which is not read; decompress it first."
-            )
-    opener = next(
-        (open_ for signature, open_ in _COMPRESSED_OPENERS.items() if start.startswith(signature)), None
-    )
-
-    # 2. Text lines, ASCII as the format requires (anything else shows as a replacement character).
-    raw = opener(file_path, "rb") if opener is not None else file_path.open("rb")
-    with io.TextIOWrapper(raw, encoding="ascii", errors="replace") as text:
-        for line in text:
-            yield line.rstrip("\r\n")
+    """The lines of an SP3 file, without line endings, whether plain or compressed (``io/text_files.py``)."""
+    return text_lines(path, "SP3 file")
 
 
 def _sp3_epoch(line: str) -> np.datetime64:
