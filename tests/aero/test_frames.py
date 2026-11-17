@@ -1,4 +1,4 @@
-"""Tests for frames (task A4a): types and quaternion conventions (1); the orbit frame and attitude law (2).
+"""Tests for frames (task A4a): conventions (1); orbit frame and law (2); ITRF and shared epochs (3).
 
 The conventions are checked against rotations worked by hand (90° about z), and against a real Spire
 quaternion: with D-85's reading, the orbit frame's nadir must lie near body +z (Spire's body frame has +z
@@ -17,6 +17,9 @@ from leodragkit.aero.frames import (
     OrbitStates,
     attitude_from_law,
     attitude_from_quaternions,
+    attitude_in_itrf,
+    check_same_epochs,
+    common_epochs,
     inertial_velocity_in_itrf,
     itrf_from_orbit_level,
 )
@@ -220,3 +223,88 @@ def test_grace_leading_flies_with_body_x_against_its_velocity():
 def test_the_law_rejects_axes_that_are_not_two_perpendicular_signed_axes(along, nadir, message):
     with pytest.raises(ValueError, match=message):
         attitude_from_law(equatorial_states(), along_velocity=along, towards_nadir=nadir)
+
+
+# --- the orbit level frame into ITRF, and shared epochs (component 3) --------------------------------
+
+
+def spire_attitude(quaternion, times=TIMES):
+    """A Spire-style attitude (body to orbit level frame, Hamilton, scalar last), the same at every epoch."""
+    return attitude_from_quaternions(
+        times,
+        "GPS",
+        [quaternion] * len(times),
+        scalar_position="last",
+        algebra="hamilton",
+        direction="body_to_reference",
+        frame="orbit_level_spire",
+        source="spire-style test",
+    )
+
+
+def test_a_body_aligned_with_the_orbit_frame_is_the_law_with_x_ahead_and_z_down():
+    states = equatorial_states()
+    turned = attitude_in_itrf(spire_attitude([0.0, 0.0, 0.0, 1.0]), states)
+    law = attitude_from_law(states, along_velocity="+x", towards_nadir="+z")
+    assert turned.frame == "ITRF" and "orbit frame from test orbit" in turned.source
+    np.testing.assert_allclose(
+        turned.body_from_reference.as_matrix(), law.body_from_reference.as_matrix(), atol=1e-14
+    )
+
+
+def test_a_half_turn_in_yaw_is_the_law_flying_backwards():
+    # A 180° turn about the orbit Z (nadir) axis puts body x against the flight direction: GRACE leading.
+    states = equatorial_states()
+    turned = attitude_in_itrf(spire_attitude([0.0, 0.0, 1.0, 0.0]), states)
+    law = attitude_from_law(states, along_velocity="-x", towards_nadir="+z")
+    np.testing.assert_allclose(
+        turned.body_from_reference.as_matrix(), law.body_from_reference.as_matrix(), atol=1e-14
+    )
+
+
+def test_an_attitude_already_in_itrf_is_returned_as_it_is():
+    states = equatorial_states()
+    law = attitude_from_law(states, along_velocity="+x", towards_nadir="+z")
+    assert attitude_in_itrf(law, states) is law
+
+
+def test_different_epochs_raise_and_point_to_common_epochs():
+    states = equatorial_states()
+    later = TIMES + np.timedelta64(1, "s")  # 09:52:14 and 09:52:15: one shared with the states
+    with pytest.raises(ValueError, match="1 are shared. common_epochs"):
+        attitude_in_itrf(spire_attitude([0.0, 0.0, 0.0, 1.0], times=later), states)
+    with pytest.raises(ValueError, match="one scale"):
+        check_same_epochs(Attitude(TIMES, "UTC", Rotation.identity(2), "orbit_level_spire", "test"), states)
+
+
+def test_common_epochs_keeps_only_the_shared_epochs_with_their_own_data():
+    states = equatorial_states(
+        directions=((0, 1, 0), (0, 0, 1))
+    )  # 09:52:13 and 09:52:14, different velocities
+    times = np.array(["2023-12-18T09:52:12", "2023-12-18T09:52:14"], dtype="datetime64[ns]")
+    attitude = attitude_from_quaternions(
+        times,
+        "GPS",
+        [[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 0.0]],
+        scalar_position="last",
+        algebra="hamilton",
+        direction="body_to_reference",
+        frame="orbit_level_spire",
+        source="test",
+    )
+    kept_attitude, kept_states = common_epochs(attitude, states)
+    np.testing.assert_array_equal(kept_attitude.times, [np.datetime64("2023-12-18T09:52:14", "ns")])
+    np.testing.assert_array_equal(kept_states.times, kept_attitude.times)
+    np.testing.assert_allclose(kept_states.velocities_m_per_s, [[0, 0, V_M_PER_S]])  # the 09:52:14 state
+    # The 09:52:14 attitude, a half turn about z (q and −q are the same rotation, so compare matrices).
+    np.testing.assert_allclose(
+        kept_attitude.body_from_reference.as_matrix(), [np.diag([-1.0, -1.0, 1.0])], atol=1e-15
+    )
+
+
+def test_common_epochs_raises_when_nothing_is_shared_or_the_scales_differ():
+    states = equatorial_states()
+    with pytest.raises(ValueError, match="share no epoch"):
+        common_epochs(spire_attitude([0.0, 0.0, 0.0, 1.0], times=TIMES + np.timedelta64(1, "h")), states)
+    with pytest.raises(ValueError, match="one scale"):
+        common_epochs(Attitude(TIMES, "UTC", Rotation.identity(2), "orbit_level_spire", "test"), states)

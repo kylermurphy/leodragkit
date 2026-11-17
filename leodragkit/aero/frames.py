@@ -8,7 +8,8 @@ interpolating (D-80). aero never imports ``io`` or ``time_scales`` (D-04): the w
 from ``io``'s records, giving times on one scale (for example ``epochs.gps`` and ``"GPS"``).
 
 Read first: ``Attitude`` and ``attitude_from_quaternions``, then ``OrbitStates``, then the orbit frame
-(``inertial_velocity_in_itrf``, ``itrf_from_orbit_level``) and ``attitude_from_law``.
+(``inertial_velocity_in_itrf``, ``itrf_from_orbit_level``), ``attitude_from_law``, and ``attitude_in_itrf``
+with ``common_epochs``.
 """
 
 from dataclasses import dataclass
@@ -207,7 +208,7 @@ def inertial_velocity_in_itrf(positions_m: ArrayLike, velocities_m_per_s: ArrayL
         inertial_velocity_in_itrf([[6.67e6, 0, 0]], [[0, 0, 7.8e3]])   # [[0, 486.4, 7800]]
     """
     # 1. ω_E as a vector: (0, 0, EARTH_ROTATION_RATE_RAD_PER_S).
-    w_E = np.array([0,0,EARTH_ROTATION_RATE_RAD_PER_S])
+    w_E = np.array([0, 0, EARTH_ROTATION_RATE_RAD_PER_S])
     # 2. v + ω_E × r for every row (np.cross works row by row on (T, 3) arrays).
     return velocities_m_per_s + np.cross(w_E, positions_m)
 
@@ -235,7 +236,7 @@ def itrf_from_orbit_level(positions_m: ArrayLike, inertial_velocities_m_per_s: A
         rotation = itrf_from_orbit_level([[6.67e6, 0, 0]], [[0, 7.8e3, 0]])
         rotation.apply([1, 0, 0])   # [[0, 1, 0]]: X along the velocity
     """
-     # 1. r and v as (T, 3) float arrays; r × v and the lengths |r| and |r × v|; raise for a zero one.
+    # 1. r and v as (T, 3) float arrays; r × v and the lengths |r| and |r × v|; raise for a zero one.
     r = np.atleast_2d(np.asarray(positions_m, dtype=float))
     v = np.atleast_2d(np.asarray(inertial_velocities_m_per_s, dtype=float))
     r_cross_v = np.cross(r, v)
@@ -284,7 +285,8 @@ def attitude_from_law(states: OrbitStates, *, along_velocity: str, towards_nadir
     nadir = _signed_axis(towards_nadir)
     if abs(along @ nadir) > 0:
         raise ValueError(
-            f"along_velocity {along_velocity!r} and towards_nadir {towards_nadir!r} must be perpendicular body axes."
+            f"along_velocity {along_velocity!r} and towards_nadir {towards_nadir!r} must be perpendicular "
+            "body axes."
         )
 
     # 2. body_from_orbit, the same at every epoch. Its columns say where orbit X, Y and Z point in the body:
@@ -302,6 +304,106 @@ def attitude_from_law(states: OrbitStates, *, along_velocity: str, towards_nadir
         body_from_reference=body_from_orbit * orbit_from_itrf,
         frame="ITRF",
         source=f"attitude law: {along_velocity} along velocity, {towards_nadir} towards nadir",
+    )
+
+
+def attitude_in_itrf(attitude: Attitude, states: OrbitStates) -> Attitude:
+    """The attitude with ITRF as its reference frame, using the orbit states at the same epochs.
+
+    An attitude already in ITRF is returned as it is. One in Spire's orbit level frame is turned into ITRF
+    with the orbit frame built from the states (``itrf_from_orbit_level`` with the inertial velocity, D-85):
+
+        body_from_ITRF = body_from_orbit · orbit_from_ITRF
+
+    Raises
+    ------
+    ValueError
+        If the attitude and the states do not share the same epochs on the same time scale
+        (``check_same_epochs``; ``common_epochs`` keeps the shared ones).
+
+    Example::
+
+        attitude, states = common_epochs(spire_attitude, states)
+        attitude_itrf = attitude_in_itrf(attitude, states)
+    """
+    # 1. The same instants, or nothing is combined (no interpolation, D-80).
+    check_same_epochs(attitude, states)
+    if attitude.frame == "ITRF":
+        return attitude
+
+    # 2. The orbit frame at each epoch, from r and the inertial velocity; then two hops, ITRF → orbit → body.
+    inertial = inertial_velocity_in_itrf(states.positions_m, states.velocities_m_per_s)
+    orbit_from_itrf = itrf_from_orbit_level(states.positions_m, inertial).inv()
+    return Attitude(
+        times=attitude.times,
+        time_scale=attitude.time_scale,
+        body_from_reference=attitude.body_from_reference * orbit_from_itrf,
+        frame="ITRF",
+        source=f"{attitude.source}, turned into ITRF with the orbit frame from {states.source}",
+    )
+
+
+def check_same_epochs(attitude: Attitude, states: OrbitStates) -> None:
+    """Raise ValueError unless the attitude and the states have exactly the same times on the same scale.
+
+    The message says how they differ and points to ``common_epochs``, which keeps the epochs both share.
+    """
+    if attitude.time_scale != states.time_scale:
+        raise ValueError(
+            f"The attitude's times are {attitude.time_scale} and the states' are {states.time_scale}: "
+            "give both on one scale (from Epochs) before combining them."
+        )
+    if len(attitude) != len(states) or not np.array_equal(attitude.times, states.times):
+        shared = len(np.intersect1d(attitude.times, states.times))
+        raise ValueError(
+            f"The attitude ({len(attitude)} epochs) and the states ({len(states)}) do not have the same "
+            f"epochs; {shared} are shared. common_epochs(attitude, states) keeps those; nothing is "
+            "interpolated."
+        )
+
+
+def common_epochs(attitude: Attitude, states: OrbitStates) -> tuple[Attitude, OrbitStates]:
+    """The attitude and the states at the epochs both hold exactly: selection, not interpolation (D-80, D-86).
+
+    Raises
+    ------
+    ValueError
+        If the two are on different time scales, or share no epoch.
+
+    Example::
+
+        attitude, states = common_epochs(attitude, states)   # e.g. 666 shared seconds of 7561 and 3306
+    """
+    # 1. One scale, then the shared times and where they sit in each input.
+    if attitude.time_scale != states.time_scale:
+        raise ValueError(
+            f"The attitude's times are {attitude.time_scale} and the states' are {states.time_scale}: "
+            "give both on one scale before matching them."
+        )
+    shared, in_attitude, in_states = np.intersect1d(attitude.times, states.times, return_indices=True)
+    if len(shared) == 0:
+        raise ValueError(
+            f"The attitude ({attitude.times[0]} to {attitude.times[-1]}) and the states "
+            f"({states.times[0]} to {states.times[-1]}) share no epoch."
+        )
+
+    # 2. Both at those epochs; everything else is carried over unchanged.
+    return (
+        Attitude(
+            times=shared,
+            time_scale=attitude.time_scale,
+            body_from_reference=attitude.body_from_reference[in_attitude],
+            frame=attitude.frame,
+            source=attitude.source,
+        ),
+        OrbitStates(
+            times=shared,
+            time_scale=states.time_scale,
+            positions_m=states.positions_m[in_states],
+            velocities_m_per_s=states.velocities_m_per_s[in_states],
+            frame=states.frame,
+            source=states.source,
+        ),
     )
 
 

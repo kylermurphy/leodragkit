@@ -18,8 +18,8 @@ Turn attitude data, or an attitude law, into `Attitude`: the rotation from ITRF 
 | # | Builds | Who |
 | --- | --- | --- |
 | 1 | `Attitude`, `OrbitStates`; `attitude_from_quaternions` with the three conventions | Claude (this patch) |
-| 2 | `inertial_velocity_in_itrf(r, v)` = v + ω_E × r; `itrf_from_orbit_level(r, v_inertial)`, Spire's orbit frame; the attitude law (`along_velocity`, `towards_nadir`, both required) | user (template in place) |
-| 3 | `"orbit_level_spire"` → `"ITRF"` (body_from_ITRF = body_from_orbit · orbit_from_ITRF); `common_epochs`; checks that epochs, scale and frame agree; notebook section 12 | Claude |
+| 2 | `inertial_velocity_in_itrf(r, v)` = v + ω_E × r; `itrf_from_orbit_level(r, v_inertial)`, Spire's orbit frame; the attitude law (`along_velocity`, `towards_nadir`, both required) | user (done; `itrf_from_orbit_level` and the law written with Claude's help, on request) |
+| 3 | `"orbit_level_spire"` → `"ITRF"` (body_from_ITRF = body_from_orbit · orbit_from_ITRF); `common_epochs`; checks that epochs, scale and frame agree; notebook section 12 | Claude (done) |
 
 ## Component 1 in detail
 
@@ -96,3 +96,44 @@ At the start: 11 failed (all `NotImplementedError`), 443 passed. Against a scrat
 - **Composition order.** In scipy, `a * b` applies `b` first; body_from_ITRF is `body_from_orbit * orbit_from_ITRF`.
 - **The law's flight direction is the inertial one.** The test checks body x against the orbit frame's X, which differs by a few degrees from the ITRF velocity's direction.
 - **Perpendicular means `a @ b == 0`.** Both the same axis and opposite axes fail.
+
+## Review of component 2
+
+All 454 tests passed and the functions follow the plan. The only changes are ruff's:
+
+- a mis-indented comment and spacing in `inertial_velocity_in_itrf`;
+- one long error message.
+
+`inertial_velocity_in_itrf` accepts lists as well as arrays (numpy converts them), and a wrongly shaped input raises numpy's own "incompatible dimensions for cross product", which is clear enough.
+
+## Component 3: Spire's orbit frame into ITRF, and shared epochs
+
+| Function | Does |
+| --- | --- |
+| `attitude_in_itrf(attitude, states)` | returns an ITRF attitude as it is; turns `"orbit_level_spire"` into ITRF with the orbit frame from the states (body_from_ITRF = body_from_orbit · orbit_from_ITRF), saying so in the source |
+| `check_same_epochs(attitude, states)` | raises unless both have exactly the same times on the same scale; the message gives the number shared and points to `common_epochs` |
+| `common_epochs(attitude, states)` | both at the epochs they share exactly (`np.intersect1d`): selection, never interpolation; raises for different scales or nothing shared |
+
+**Tests (component 3):** 6.
+
+- a body aligned with the orbit frame (quaternion [0, 0, 0, 1]) gives the same attitude as the law with +x ahead and +z down, to 10⁻¹⁴;
+- a half turn in yaw ([0, 0, 1, 0]) gives the law flying −x first (GRACE leading);
+- an ITRF attitude passes through unchanged;
+- different epochs raise, naming the shared count, and so do different scales;
+- `common_epochs` keeps only the shared epoch, with its own state and rotation;
+- it raises when nothing is shared, or the scales differ.
+
+**Notebook section 12** reads the user's two FM134 files from paths set at its top (observed attitude only, `common_epochs`, `attitude_in_itrf`), or uses a circular polar orbit with the law when they are absent. It plots the direction of the velocity relative to the air in the body frame: the azimuth from +x in the x–y plane, and the elevation towards +z. It ran here both ways, without errors.
+
+**First end-to-end result, from the user's files** (not committed):
+
+- **493 shared observed seconds,** 09:52:13–10:00:27 GPS. The last three minutes of the overlap are repeated-value epochs, which `keep_observed` leaves out.
+- **Azimuth −162.4°** (from −163.7° to −162.0°): FM134 flies **−x first**, turned about 18° in yaw.
+- **Elevation −0.52°** (from −1.04° to +0.09°): the velocity lies within about a degree of the body x–y plane, consistent with body z at nadir.
+- **Compared with the attitude law** (+x ahead, +z down), Spire's attitude is turned 165.0°–166.6°, in agreement with the attitude file's yaw near 180° (I2 plan).
+
+**With the circular orbit and the law,** the azimuth swings between about −3.6° and +3.6°: the inertial flight direction (the law's +x) and the air's direction differ by the Earth's rotation, most at the equator.
+
+## Done when
+
+All three components are pushed, and notebook section 12 runs both ways. A4a is then complete, and A4b (each panel's angle to the flow, and the flow drawn on the spacecraft) can start.
