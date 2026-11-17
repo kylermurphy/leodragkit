@@ -7,7 +7,8 @@ carry their times on one named scale and a frame label, and aero checks that the
 interpolating (D-80). aero never imports ``io`` or ``time_scales`` (D-04): the workflow builds these types
 from ``io``'s records, giving times on one scale (for example ``epochs.gps`` and ``"GPS"``).
 
-Read first: ``Attitude`` and ``attitude_from_quaternions``, then ``OrbitStates``.
+Read first: ``Attitude`` and ``attitude_from_quaternions``, then ``OrbitStates``, then the orbit frame
+(``inertial_velocity_in_itrf``, ``itrf_from_orbit_level``) and ``attitude_from_law``.
 """
 
 from dataclasses import dataclass
@@ -30,6 +31,21 @@ ROTATION_DIRECTIONS = ("body_to_reference", "reference_to_body")
 
 # A quaternion whose length differs from 1 by more than this is rejected, not silently rescaled.
 QUATERNION_LENGTH_TOLERANCE = 1e-6
+
+# The nominal mean angular velocity of the Earth, about the ITRF z axis: IERS Conventions (2003), IERS
+# Technical Note 32 (McCarthy & Petit), Table 1.1, unchanged in the IAU 2009 system of astronomical constants.
+# Nominal: it ignores day-length changes of a few parts in 1e8, micrometres per second in v + ω × r.
+EARTH_ROTATION_RATE_RAD_PER_S = 7.292115e-5
+
+# Body axes an attitude law may name: a sign and an axis.
+BODY_AXES = {
+    "+x": (1, 0, 0),
+    "-x": (-1, 0, 0),
+    "+y": (0, 1, 0),
+    "-y": (0, -1, 0),
+    "+z": (0, 0, 1),
+    "-z": (0, 0, -1),
+}
 
 
 @dataclass(frozen=True)
@@ -167,6 +183,132 @@ def attitude_from_quaternions(
         frame=frame,
         source=source,
     )
+
+
+def inertial_velocity_in_itrf(positions_m: ArrayLike, velocities_m_per_s: ArrayLike) -> np.ndarray:
+    """The inertial velocity, written in ITRF axes: v + ω_E × r, with ω_E along the ITRF z axis.
+
+    An ITRF velocity is relative to the rotating Earth (and so to the co-rotating atmosphere, D-25); adding
+    ω_E × r gives the velocity a non-rotating observer sees, still written in ITRF axes. Spire's orbit level
+    frame is defined with it (D-85), so no inertial frame and no Earth-orientation data are needed (D-79).
+
+    Parameters
+    ----------
+    positions_m, velocities_m_per_s
+        (T, 3) in ITRF.
+
+    Returns
+    -------
+    np.ndarray
+        (T, 3) in m/s. At the equator, at 6.67e6 m, ω_E × r is about 486 m/s, eastward.
+
+    Example::
+
+        inertial_velocity_in_itrf([[6.67e6, 0, 0]], [[0, 0, 7.8e3]])   # [[0, 486.4, 7800]]
+    """
+    # 1. ω_E as a vector: (0, 0, EARTH_ROTATION_RATE_RAD_PER_S).
+    w_E = np.array([0,0,EARTH_ROTATION_RATE_RAD_PER_S])
+    # 2. v + ω_E × r for every row (np.cross works row by row on (T, 3) arrays).
+    return velocities_m_per_s + np.cross(w_E, positions_m)
+
+
+def itrf_from_orbit_level(positions_m: ArrayLike, inertial_velocities_m_per_s: ArrayLike) -> Rotation:
+    """The rotation from Spire's orbit level frame into ITRF, at each epoch.
+
+    The orbit level frame (Spire's leoAtt header; D-85), built from the position r and the inertial velocity v
+    (``inertial_velocity_in_itrf``):
+
+        Z = −r / |r|                (nadir)
+        Y = −(r × v) / |r × v|      (opposite the orbit's angular momentum)
+        X = Y × Z                   (along the part of v perpendicular to r)
+
+    X, Y and Z, written in ITRF, are the **columns** of the rotation matrix: ``rotation.apply([1, 0, 0])``
+    is X in ITRF. Its inverse, ``rotation.inv()``, is orbit_from_ITRF.
+
+    Raises
+    ------
+    ValueError
+        If any r is zero, or any r × v is zero (v along r), where the frame is undefined; names the epoch.
+
+    Example::
+
+        rotation = itrf_from_orbit_level([[6.67e6, 0, 0]], [[0, 7.8e3, 0]])
+        rotation.apply([1, 0, 0])   # [[0, 1, 0]]: X along the velocity
+    """
+    # 1. r and v as (T, 3) float arrays; r × v and the lengths |r| and |r × v|; raise for a zero one.
+    r = positions_m
+    v = inertial_velocities_m_per_s
+
+    r_l = np.linalg.norm(r,axis=0)
+    rxv_l = np.linalg.norm(np.cross(r,v),axis=0)
+
+    if np.any(r_l==0) or np.any(rxv_l==0):
+        raise ValueError("|r| and |r x v| cannot be zero.")
+
+    # 2. Z, Y and X as (T, 3) unit vectors, in that order.
+    z = -(r/r_l)
+    y = -(np.cross(r,v)/rxv_l)
+    x = np.cross(y,z)
+    # 3. The matrices with X, Y, Z as columns: np.stack([X, Y, Z], axis=-1) has shape (T, 3, 3); then
+    #    Rotation.from_matrix.
+    return Rotation.from_matrix(np.stack([x,y,z],axis=-1))
+
+
+def attitude_from_law(states: OrbitStates, *, along_velocity: str, towards_nadir: str) -> Attitude:
+    """An ``Attitude`` in ITRF for a spacecraft held fixed in its orbit frame, when there is no attitude data.
+
+    The body axis ``along_velocity`` points along the orbit frame's X (the flight direction), and the body
+    axis ``towards_nadir`` along Z (nadir); the third body axis follows, so the axes stay right-handed.
+    GRACE's leading satellite, for example, flies with body x against its velocity: ``along_velocity="-x"``.
+
+    Parameters
+    ----------
+    states
+        Positions and velocities in ITRF; the attitude has the same times and scale.
+    along_velocity, towards_nadir
+        Signed body axes from ``BODY_AXES`` (``"+x"``, ``"-z"``, …); they must be perpendicular.
+
+    Raises
+    ------
+    ValueError
+        If an axis is not in ``BODY_AXES``, or the two are not perpendicular (the same axis, or opposite).
+
+    Example::
+
+        attitude = attitude_from_law(states, along_velocity="+x", towards_nadir="+z")
+        attitude.frame   # "ITRF"
+    """
+    # 1. The two body axes as unit vectors, and a check that they are perpendicular.
+    along = _signed_axis(along_velocity)
+    nadir = _signed_axis(towards_nadir)
+    if abs(along @ nadir) > 0:
+        raise ValueError(
+            f"along_velocity {along_velocity!r} and towards_nadir {towards_nadir!r} must be perpendicular body axes."
+        )
+
+    # 2. body_from_orbit, the same at every epoch. Its columns say where orbit X, Y and Z point in the body:
+    #    X → along, Z → nadir, and Y = Z × X → nadir × along (a rotation carries cross products with it).
+    body_from_orbit = Rotation.from_matrix(np.column_stack([along, np.cross(nadir, along), nadir]))
+
+    # 3. orbit_from_ITRF: the orbit frame built from r and the inertial velocity, then inverted.
+    inertial = inertial_velocity_in_itrf(states.positions_m, states.velocities_m_per_s)
+    orbit_from_itrf = itrf_from_orbit_level(states.positions_m, inertial).inv()
+
+    # 4. Two hops, ITRF → orbit frame → body (scipy's a * b applies b first), on the states' times.
+    return Attitude(
+        times=states.times,
+        time_scale=states.time_scale,
+        body_from_reference=body_from_orbit * orbit_from_itrf,
+        frame="ITRF",
+        source=f"attitude law: {along_velocity} along velocity, {towards_nadir} towards nadir",
+    )
+
+
+def _signed_axis(name: str) -> np.ndarray:
+    """The unit vector for a signed body axis such as ``"+x"`` or ``"-z"``; raise ValueError otherwise."""
+    if name not in BODY_AXES:
+        raise ValueError(f"a body axis must be one of {sorted(BODY_AXES)}, got {name!r}.")
+    return np.array(BODY_AXES[name], dtype=float)
 
 
 def _as_times(times: ArrayLike) -> np.ndarray:

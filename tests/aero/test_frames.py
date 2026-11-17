@@ -1,4 +1,4 @@
-"""Tests for frames (task A4a, component 1): the Attitude and OrbitStates types, and quaternion conventions.
+"""Tests for frames (task A4a): types and quaternion conventions (1); the orbit frame and attitude law (2).
 
 The conventions are checked against rotations worked by hand (90° about z), and against a real Spire
 quaternion: with D-85's reading, the orbit frame's nadir must lie near body +z (Spire's body frame has +z
@@ -11,7 +11,15 @@ import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation
 
-from leodragkit.aero.frames import Attitude, OrbitStates, attitude_from_quaternions
+from leodragkit.aero.frames import (
+    EARTH_ROTATION_RATE_RAD_PER_S,
+    Attitude,
+    OrbitStates,
+    attitude_from_law,
+    attitude_from_quaternions,
+    inertial_velocity_in_itrf,
+    itrf_from_orbit_level,
+)
 
 TIMES = np.array(["2023-12-18T09:52:13", "2023-12-18T09:52:14"], dtype="datetime64[ns]")
 SIN45, COS45 = np.sin(np.pi / 4), np.cos(np.pi / 4)
@@ -119,3 +127,96 @@ def test_orbit_states_check_their_arrays_and_frame():
         OrbitStates(TIMES, "GPS", positions, velocities, "orbit_level_spire", "test")
     with pytest.raises(ValueError, match="source must be a non-empty string"):
         OrbitStates(TIMES, "GPS", positions, velocities, "ITRF", "")
+
+
+# --- inertial velocity, the orbit frame, the attitude law (component 2) ------------------------------
+
+R_M = 6.67e6  # about 290 km altitude, as FM134 in December 2023
+V_M_PER_S = 7.8e3
+
+
+def equatorial_states(directions=((0, 1, 0), (0, 1, 0))):
+    """Two epochs at (R, 0, 0) in ITRF, moving along the given directions (prograde equatorial by default)."""
+    positions = np.array([[R_M, 0.0, 0.0]] * 2)
+    velocities = V_M_PER_S * np.array(directions, dtype=float)
+    return OrbitStates(TIMES, "GPS", positions, velocities, "ITRF", "test orbit")
+
+
+def test_the_inertial_velocity_adds_the_earths_rotation_at_the_equator():
+    # At (R, 0, 0), ω × r = (0, ωR, 0): about 486 m/s eastward.
+    result = inertial_velocity_in_itrf([[R_M, 0.0, 0.0]], [[0.0, 0.0, V_M_PER_S]])
+    np.testing.assert_allclose(result, [[0.0, EARTH_ROTATION_RATE_RAD_PER_S * R_M, V_M_PER_S]], rtol=1e-15)
+    assert result[0, 1] == pytest.approx(486.4, abs=0.1)
+
+
+def test_the_inertial_velocity_is_unchanged_over_the_pole():
+    np.testing.assert_allclose(
+        inertial_velocity_in_itrf([[0.0, 0.0, R_M]], [[V_M_PER_S, 0.0, 0.0]]), [[V_M_PER_S, 0, 0]]
+    )
+
+
+def test_the_orbit_frame_of_a_prograde_equatorial_orbit():
+    # r = (R, 0, 0), v = (0, V, 0): Z = (−1, 0, 0) is nadir; Y = −(r × v)/|r × v| = (0, 0, −1);
+    # X = Y × Z = (0, 1, 0), along the velocity.
+    rotation = itrf_from_orbit_level([[R_M, 0.0, 0.0]], [[0.0, V_M_PER_S, 0.0]])
+    np.testing.assert_allclose(rotation.apply([1, 0, 0]), [[0, 1, 0]], atol=1e-15)
+    np.testing.assert_allclose(rotation.apply([0, 1, 0]), [[0, 0, -1]], atol=1e-15)
+    np.testing.assert_allclose(rotation.apply([0, 0, 1]), [[-1, 0, 0]], atol=1e-15)
+
+
+def test_the_orbit_frame_is_right_handed_and_points_the_right_way_for_any_state():
+    rng = np.random.default_rng(20261103)
+    positions = rng.normal(size=(50, 3)) * R_M
+    velocities = rng.normal(size=(50, 3)) * V_M_PER_S
+    rotation = itrf_from_orbit_level(positions, velocities)
+    matrices = rotation.as_matrix()
+    np.testing.assert_allclose(np.linalg.det(matrices), 1.0, atol=1e-12)
+    x_axis, z_axis = matrices[:, :, 0], matrices[:, :, 2]
+    assert np.all(np.einsum("ij,ij->i", z_axis, positions) < 0)  # Z towards the Earth
+    assert np.all(np.einsum("ij,ij->i", x_axis, velocities) > 0)  # X along the flight direction
+
+
+def test_velocity_along_the_position_has_no_orbit_frame():
+    with pytest.raises(ValueError, match="0"):
+        itrf_from_orbit_level([[R_M, 0.0, 0.0]], [[V_M_PER_S, 0.0, 0.0]])
+
+
+def flight_direction(states):
+    """The orbit frame's X, in ITRF: along the inertial velocity's part perpendicular to r."""
+    inertial = inertial_velocity_in_itrf(states.positions_m, states.velocities_m_per_s)
+    return itrf_from_orbit_level(states.positions_m, inertial).apply([1, 0, 0])
+
+
+def test_the_law_points_the_chosen_body_axes_along_the_flight_direction_and_nadir():
+    states = equatorial_states()
+    attitude = attitude_from_law(states, along_velocity="+x", towards_nadir="+z")
+    assert attitude.frame == "ITRF" and attitude.time_scale == "GPS" and len(attitude) == 2
+    np.testing.assert_array_equal(attitude.times, states.times)
+    # The orbit frame uses the inertial velocity, so X is tilted slightly from the ITRF velocity: check X.
+    flight = flight_direction(states)
+    np.testing.assert_allclose(attitude.body_from_reference.apply(flight), [[1, 0, 0]] * 2, atol=1e-14)
+    np.testing.assert_allclose(
+        attitude.body_from_reference.apply([-1, 0, 0]), [[0, 0, 1]] * 2, atol=1e-14
+    )  # nadir
+
+
+def test_grace_leading_flies_with_body_x_against_its_velocity():
+    states = equatorial_states()
+    attitude = attitude_from_law(states, along_velocity="-x", towards_nadir="+z")
+    flight = flight_direction(states)
+    np.testing.assert_allclose(attitude.body_from_reference.apply(flight), [[-1, 0, 0]] * 2, atol=1e-14)
+    assert np.allclose(np.linalg.det(attitude.body_from_reference.as_matrix()), 1.0)  # still right-handed
+
+
+@pytest.mark.parametrize(
+    ("along", "nadir", "message"),
+    [
+        ("+x", "+x", "perpendicular"),
+        ("+x", "-x", "perpendicular"),
+        ("+w", "+z", "must be one of"),
+        ("x", "+z", "must be one of"),
+    ],
+)
+def test_the_law_rejects_axes_that_are_not_two_perpendicular_signed_axes(along, nadir, message):
+    with pytest.raises(ValueError, match=message):
+        attitude_from_law(equatorial_states(), along_velocity=along, towards_nadir=nadir)
