@@ -37,7 +37,7 @@ DELTET/DELTA_AT        = ( 10,   @1972-JAN-1
 def write_fake_kernel(directory, text=FAKE_KERNEL, monkeypatch=None):
     """Write the fake kernel under its real name; with monkeypatch, pin its own SHA-256."""
     path = local_path_for_leap_second_kernel(directory)
-    path.write_text(text, encoding="ascii")
+    path.write_bytes(text.encode("ascii"))  # bytes, so Windows doesn't turn each \n into \r\n
     if monkeypatch is not None:
         monkeypatch.setattr(
             spice_kernels, "LEAP_SECOND_KERNEL_SHA256", hashlib.sha256(path.read_bytes()).hexdigest()
