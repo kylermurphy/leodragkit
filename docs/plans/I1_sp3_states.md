@@ -29,7 +29,7 @@ Source: Hilla, S., *The Extended Standard Product 3 Orbit Format (SP3-c)*, Natio
 | --- | --- | --- |
 | 1 | `SatelliteStates` in `io/records.py`, with its checks; this plan | Claude |
 | 2 | the header (`read_sp3_header`): version, velocity flag, frame name → `"ITRF"` (IGS08, IGb08, IGS14, IGb14, IGS20, ITR08, ITR14, ITR20; others raise; the field is 5 columns wide), time system, satellite ids; opening plain, gzip, bzip2 and xz files (`sp3_text_lines`, standard library, detected from the first bytes) | Claude (done) |
-| 3 | `_sp3_epoch(line)` and `_sp3_vector(line)`: the fixed-column parsers, returning `None` for a bad record | user |
+| 3 | `_sp3_epoch(line)` and `_sp3_vector(line)`: the fixed-column parsers, returning `None` for a bad record | user (template in place) |
 | 4 | `read_sp3_file(path, kernel, satellite_id=None)`: each `P` paired with the `V` after it; bad pairs, unmatched positions and repeated (satellite, epoch) records dropped and their line numbers kept; one warning with the counts | Claude, porting contigo_edr's `df_sp3` rules (without pandas) |
 
 ## Decisions in this step
@@ -67,6 +67,40 @@ Checked whenever created:
 - an `InputRecord`.
 
 **Tests (component 1):** a valid set; each inconsistent field named; repeated epochs rejected.
+
+## Component 3: the record parsers (the user's part)
+
+Both are in `io/sp3_files.py`, each with its columns in the docstring and numbered steps. Python slices count from 0, so columns a–b are `line[a - 1:b]`.
+
+| Function | Columns | Returns |
+| --- | --- | --- |
+| `_sp3_epoch(line)` | 4–7 year, 9–10 month, 12–13 day, 15–16 hour, 18–19 minute, 21–31 seconds | `datetime64[ns]` on the file's scale; raises `ValueError` if a field is missing, not a number, or the date doesn't exist |
+| `_sp3_vector(line)` | 2–4 id; 5–18, 19–32, 33–46 x, y, z (km for `P`, dm/s for `V`) | `(id, array of 3)` in file units, or `None` if any field is blank or not a number, all three are 0.000000, or one is 999999.999999 |
+
+**Required reading:**
+
+- the SP3-c specification (https://files.igs.org/pub/data/format/sp3c.txt), "Line Twenty three" (the epoch record), "Line Twenty four" (position) and "Line Twenty six" (velocity), and the notes on bad or absent values after them: 15 min;
+- your Spire file's first records: 2 min.
+
+**Tests (component 3):** 14.
+
+- **Epochs:**
+  - a Spire epoch line to the nanosecond;
+  - fractional seconds;
+  - month 13, a missing seconds field and a non-number each raise.
+- **Vectors:**
+  - Spire `P` and `V` lines (the absent clock rate ignored);
+  - an IGS id;
+  - all-zero, a blank field, a non-number, a short line and 999999.999999 each give `None`;
+  - a single zero coordinate is kept.
+
+At the start: 14 failed (all `NotImplementedError`), 344 passed. Against a scratch implementation kept out of the repository, all 358 pass.
+
+**Traps:**
+
+- **Seconds to nanoseconds.** Use `round(seconds * 1e9)` as an integer `timedelta64`; adding a float would lose the exact second.
+- **A short line gives an empty slice,** and `float("")` raises `ValueError`, which should become `None` in `_sp3_vector` but stay an error in `_sp3_epoch`.
+- **Only all three zero is bad.** A single 0.000000 coordinate can be real.
 
 ## Done when
 
