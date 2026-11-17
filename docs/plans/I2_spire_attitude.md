@@ -33,7 +33,7 @@ From Spire's *Attitude and Navigation Product Summary* (2021, §2.1.2) and the u
 | --- | --- | --- |
 | 1 | `AttitudeRecords` and `keep_observed` in `io/records.py`; `io/repeated_warnings.py` (the warning helper `sp3_files.py` had, now shared by io's readers); this plan | Claude (this patch) |
 | 2 | the header (`read_spire_attitude_header`): version → flag meanings, satellite, `sca`, the GPS reference; `io/text_files.py` (plain or compressed text lines, shared with the SP3 reader) | Claude (done) |
-| 3 | `_attitude_epoch(tim_line)` → (GPS time, flag) and `_attitude_quaternion(sca_line)` → 4 numbers | user |
+| 3 | `_attitude_epoch(tim_line)` → (GPS time, flag) and `_attitude_quaternion(sca_line)` → 4 numbers | user (template in place) |
 | 4 | `read_spire_attitude_file(path, kernel)`: `tim` paired with the `sca` after it; drop rules as in SP3 (unmatched, unparsable, non-finite, length not 1 within 10⁻⁶, repeated epochs), lines kept, one warning; `Epochs` from GPS; the conventions attached | Claude |
 
 ## Decisions in this step (the user's answers, 2026-11-03)
@@ -94,6 +94,36 @@ Opening files moved to `io/text_files.py` (`text_lines`), now shared by the SP3 
 - the meanings returned are a copy.
 
 The user's file reads as version `1.2`, meanings {0: observed, 1: repeated, 2: default}, satellite `FM134`, with records from line 19.
+
+## Component 3: the record parsers (the user's part)
+
+Both are in `io/spire_attitude_files.py`, with numbered steps. Unlike SP3, the lines are split on spaces, not read by column: the leoAtt layout is not column-defined.
+
+| Function | Reads | Returns |
+| --- | --- | --- |
+| `_attitude_epoch(line)` | `tim` + year, month, day, hour, minute, seconds, flag (eight fields) | (`datetime64[ns]` GPS time, `int` flag); raises `ValueError` for another first word, a field count other than eight, a non-number, a flag that isn't whole, an impossible date, or seconds outside [0, 60) |
+| `_attitude_quaternion(line)` | `sca` + qx, qy, qz, qw (five fields) | the four numbers in order, or `None` for another first word, a field count other than five, a non-number, a non-finite value, or a length differing from 1 by more than `QUATERNION_LENGTH_TOLERANCE` (10⁻⁶) |
+
+The default quaternion [0, 0, 0, 1] is read like any other: whether it is kept is decided by its flag (`keep_observed`), not by the parser. Checking a flag against the file's version is component 4's job.
+
+**Required reading:**
+
+- the I2 plan's "The format";
+- `_sp3_epoch` (I1), which builds a time the same way;
+- 20 records of the user's file, around 08:11, where observed and repeated alternate.
+
+**Tests (component 3):** 18.
+
+- **`tim` lines:** a time and its flag; fractional seconds; seven malformed lines that raise.
+- **`sca` lines:** an `sca` line in order; the default read as-is; six bad lines giving `None`; a quaternion rounded to 10 decimals kept.
+
+At the start: 18 failed (all `NotImplementedError`), 397 passed. Against a scratch implementation kept out of the repository, all 415 pass.
+
+**Traps:**
+
+- **The flag must be a whole number:** `int("1.5")` raises, which is what the test wants; don't convert through `float` first.
+- **Seconds** become integer nanoseconds (`round(seconds * 1e9)`), as in `_sp3_epoch`.
+- **`str.split()` with no argument** splits on any run of spaces, which these lines need (`18  7 57`).
 
 ## The user's file
 
