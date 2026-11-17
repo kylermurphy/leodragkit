@@ -204,7 +204,7 @@ def test_a_clean_file_reads_every_epoch_with_its_flag_and_conventions(tmp_path, 
         "body_to_reference",
         "orbit_level_spire",
     )
-    assert (records.satellite_id, records.file_version, records.dropped_record_lines) == ("FM134", "1.2", ())
+    assert (records.satellite_id, records.file_version, records.dropped_records) == ("FM134", "1.2", ())
     np.testing.assert_array_equal(records.quaternions[0], [0, 0, 0, 1])
     assert records.epochs.utc[0] == np.datetime64("2023-12-18T09:51:55", "ns")  # GPS − 18 s
 
@@ -236,7 +236,7 @@ def test_a_bad_quaternion_drops_its_pair_and_warns_with_the_lines(tmp_path, leap
     lines[3] = "sca  0.0000000000  0.0000000000  0.0000000000  1.1000000000"  # the second pair (lines 14, 15)
     with pytest.warns(AttitudeRecordsDroppedWarning, match="2 attitude record lines .* lines 14, 15"):
         records = read_spire_attitude_file(write_attitude(tmp_path, lines), leap_second_kernel)
-    assert len(records) == 3 and records.dropped_record_lines == (14, 15)
+    assert len(records) == 3 and records.dropped_records == (("attitude.log", 14), ("attitude.log", 15))
 
 
 def test_unmatched_tim_and_sca_lines_are_dropped(tmp_path, leap_second_kernel):
@@ -245,7 +245,7 @@ def test_unmatched_tim_and_sca_lines_are_dropped(tmp_path, leap_second_kernel):
     lines.insert(0, TURNED)  # an sca before any tim (line 12)
     with pytest.warns(AttitudeRecordsDroppedWarning):
         records = read_spire_attitude_file(write_attitude(tmp_path, lines), leap_second_kernel)
-    assert len(records) == 3 and records.dropped_record_lines == (12, 15)
+    assert len(records) == 3 and records.dropped_records == (("attitude.log", 12), ("attitude.log", 15))
 
 
 def test_a_repeated_epoch_keeps_the_first_and_epochs_are_sorted(tmp_path, leap_second_kernel):

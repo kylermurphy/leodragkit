@@ -41,6 +41,7 @@ A module may add private helpers but no other public functions without the user'
 
 ## Parsing
 
+- **Several files.** Readers read one file; `io/merging.py` joins records of one satellite from a list of files, by the rules of D-87, and reports the differences where they overlap. Files are passed as a list, never discovered by provider-specific names.
 - **Standard records.** Readers return the record type for their kind, from `io/records.py`: `SatelliteStates` or `AttitudeRecords` (D-83), with units in field names and times as `Epochs` (UTC, GPS and SPICE ET, D-82).
 - **Malformed input raises** with the file name and line number. Never skip lines silently.
 - **SP3 headers are read, not assumed.** Take the time system, frame and sampling interval from the header. Map the frame name to a label from the fixed list (IGS08, IGb08, IGS14, IGb14, IGS20, ITR08, ITR14 and ITR20 → `"ITRF"`), and raise on any other. Positions are in km and velocities in dm/s in the file; convert them to m and m/s. A file without velocities raises (D-83). A `V` clock rate of 999999.999999 means "not estimated" (D-84).

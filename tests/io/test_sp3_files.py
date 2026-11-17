@@ -226,13 +226,13 @@ def read_quietly(path, kernel, **options):
 
 def test_a_clean_file_reads_into_metres_on_epochs(tmp_path, leap_second_kernel):
     states = read_quietly(write_sp3(tmp_path, body()), leap_second_kernel)
-    assert len(states) == 3 and states.satellite_id == "134" and states.dropped_record_lines == ()
-    assert (states.frame, states.frame_as_written) == ("ITRF", "IGS08")
+    assert len(states) == 3 and states.satellite_id == "134" and states.dropped_records == ()
+    assert (states.frame, states.frames_as_written) == ("ITRF", ("IGS08",))
     np.testing.assert_allclose(states.positions_m[0], [6631941.824, 281807.651, -657598.319])
     np.testing.assert_allclose(states.velocities_m_per_s[0], [-687.2336763, -1508.8591935, -7631.0524044])
     assert states.epochs.gps[0] == np.datetime64("2023-12-18T09:52:13", "ns")
     assert states.epochs.utc[0] == np.datetime64("2023-12-18T09:51:55", "ns")  # GPS − 18 s
-    assert states.input_record.path.name == "orbit.sp3"
+    assert [record.path.name for record in states.input_records] == ["orbit.sp3"]
 
 
 def test_a_bad_position_drops_its_pair_and_warns_with_the_lines(tmp_path, leap_second_kernel):
@@ -240,7 +240,7 @@ def test_a_bad_position_drops_its_pair_and_warns_with_the_lines(tmp_path, leap_s
     lines[4] = record("134", "P", "0.000000", "0.000000", "0.000000")  # the second epoch's P (file line 15)
     with pytest.warns(Sp3RecordsDroppedWarning, match="2 record lines .* lines 15, 16"):
         states = read_sp3_file(write_sp3(tmp_path, lines), leap_second_kernel)
-    assert len(states) == 2 and states.dropped_record_lines == (15, 16)
+    assert len(states) == 2 and states.dropped_records == (("orbit.sp3", 15), ("orbit.sp3", 16))
 
 
 def test_a_bad_velocity_drops_its_pair(tmp_path, leap_second_kernel):
@@ -255,21 +255,23 @@ def test_a_position_without_its_velocity_is_dropped(tmp_path, leap_second_kernel
     del lines[5]  # the second epoch's V
     with pytest.warns(Sp3RecordsDroppedWarning):
         states = read_sp3_file(write_sp3(tmp_path, lines), leap_second_kernel)
-    assert len(states) == 2 and states.dropped_record_lines == (15,)
+    assert len(states) == 2 and states.dropped_records == (("orbit.sp3", 15),)
 
 
 def test_a_velocity_without_a_position_is_dropped(tmp_path, leap_second_kernel):
     lines = body()
     del lines[4]  # the second epoch's P
     with pytest.warns(Sp3RecordsDroppedWarning):
-        assert read_sp3_file(write_sp3(tmp_path, lines), leap_second_kernel).dropped_record_lines == (15,)
+        assert read_sp3_file(write_sp3(tmp_path, lines), leap_second_kernel).dropped_records == (
+            ("orbit.sp3", 15),
+        )
 
 
 def test_a_repeated_epoch_keeps_the_first(tmp_path, leap_second_kernel):
     lines = body() + body(seconds=(14,))
     with pytest.warns(Sp3RecordsDroppedWarning):
         states = read_sp3_file(write_sp3(tmp_path, lines), leap_second_kernel)
-    assert len(states) == 3 and states.dropped_record_lines == (21, 22)
+    assert len(states) == 3 and states.dropped_records == (("orbit.sp3", 21), ("orbit.sp3", 22))
 
 
 def test_epochs_out_of_order_are_sorted(tmp_path, leap_second_kernel):

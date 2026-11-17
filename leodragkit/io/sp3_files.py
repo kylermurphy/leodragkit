@@ -74,7 +74,7 @@ def read_sp3_file(path: str | Path, kernel, satellite_id: str | None = None) -> 
     """Read one satellite's positions and velocities from an SP3 file, in metres, on ``Epochs``.
 
     Each ``P`` (position) record is paired with the ``V`` (velocity) record after it. Dropped, with their
-    line numbers kept in ``dropped_record_lines`` and counted in one ``Sp3RecordsDroppedWarning``:
+    line numbers kept in ``dropped_records`` and counted in one ``Sp3RecordsDroppedWarning``:
 
     - a pair whose ``P`` or ``V`` is bad (``_sp3_vector`` gives None): both lines;
     - a ``P`` with no ``V`` before the next record for the satellite, the next epoch or the end;
@@ -103,7 +103,7 @@ def read_sp3_file(path: str | Path, kernel, satellite_id: str | None = None) -> 
 
         kernel = load_leap_second_kernel(main_config.data_directories.spice_kernels, allow_download=True)
         states = read_sp3_file("spire_nav_L1B_leoOrb_v06_02_2023-12-18T09-51-49_FM134.sp3", kernel)
-        states.frame_as_written, len(states)   # ("IGS08", 3306)
+        states.frames_as_written, len(states)   # (("IGS08",), 3306)
     """
     # 1. The lines, the header, and which satellite.
     file_path = Path(path).expanduser()
@@ -204,10 +204,10 @@ def read_sp3_file(path: str | Path, kernel, satellite_id: str | None = None) -> 
         positions_m=np.array(positions)[order],
         velocities_m_per_s=np.array(velocities)[order],
         frame=header.frame,
-        frame_as_written=header.coordinate_system,
+        frames_as_written=(header.coordinate_system,),
         satellite_id=satellite_id,
-        dropped_record_lines=dropped_lines,
-        input_record=input_record_for(file_path),
+        dropped_records=tuple((file_path.name, line) for line in dropped_lines),
+        input_records=(input_record_for(file_path),),
     )
 
 

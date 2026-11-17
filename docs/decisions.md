@@ -316,6 +316,19 @@ User, 2026-11-02. Details and references: `docs/plans/A4_attitude_and_flow_overv
 - **`common_epochs` is selection, not interpolation** (D-80).
 - **JPL quaternions** are read as Hamilton and inverted, since JPL multiplication is Hamilton's in reverse order.
 
+**D-87. Records from several files are merged in `io/merging.py`, from a list of files.** User, 2026-11-03.
+
+- **Orbits:** where files overlap, each epoch comes from the file in which it lies furthest from either end of its span.
+- **Attitude:** an observed value beats a repeated or default one.
+- **Ties** go to the earlier file in the list.
+- **Differences in overlaps** are reported (`overlap_differences`, and one `RecordsMergedWarning`).
+- **Attitude files of different versions are not merged.**
+- **SP3 files in different ITRF realisations are merged,** keeping every name as written.
+- **Provenance for several files:** `SatelliteStates` and `AttitudeRecords` carry `input_records` (a tuple), `dropped_records` as (file name, line number) pairs, and `SatelliteStates.frames_as_written` (a tuple).
+- **Files are passed as a list,** not discovered by provider-specific names, since Spire won't be the only source.
+
+Details: `docs/plans/I3_merging.md`.
+
 ## Licence
 
 **D-32. leodragkit is released under the MIT licence.** User, 2026-10-27. This is compatible with D-28: the aero code is written from the published equations, and ADBSat's GPL-3 code is used only as a test oracle, never copied or translated.

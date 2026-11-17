@@ -85,7 +85,8 @@ class OrbitStates:
 
     aero's own copy of what ``io.records.SatelliteStates`` holds, so aero imports nothing from ``io`` (D-04);
     the workflow builds it, e.g. ``OrbitStates(states.epochs.gps, "GPS", states.positions_m,
-    states.velocities_m_per_s, states.frame, states.input_record.path.name)``.
+    states.velocities_m_per_s, states.frame, source_names(states))``, with ``source_names`` from
+    ``leodragkit.io.records``.
     """
 
     times: np.ndarray  # (T,) datetime64[ns], strictly increasing

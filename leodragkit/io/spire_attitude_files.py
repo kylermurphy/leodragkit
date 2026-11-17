@@ -65,7 +65,7 @@ def read_spire_attitude_file(path: str | Path, kernel) -> AttitudeRecords:
     """Read a Spire leoAtt file into ``AttitudeRecords``: every epoch, its quaternion as written, its flag.
 
     Each ``tim`` line is paired with the ``sca`` line after it. Dropped, with their line numbers kept in
-    ``dropped_record_lines`` and counted in one ``AttitudeRecordsDroppedWarning``:
+    ``dropped_records`` and counted in one ``AttitudeRecordsDroppedWarning``:
 
     - a pair whose ``sca`` is bad (``_attitude_quaternion`` gives None): both lines;
     - a ``tim`` with no ``sca`` before the next ``tim`` or the end;
@@ -173,8 +173,8 @@ def read_spire_attitude_file(path: str | Path, kernel) -> AttitudeRecords:
         flag_meanings=header.flag_meanings,
         satellite_id=header.satellite_id,
         file_version=header.file_version,
-        dropped_record_lines=dropped_lines,
-        input_record=input_record_for(file_path),
+        dropped_records=tuple((file_path.name, line) for line in dropped_lines),
+        input_records=(input_record_for(file_path),),
         **SPIRE_ATTITUDE_CONVENTIONS,
     )
 

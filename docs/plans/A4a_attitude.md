@@ -1,5 +1,7 @@
 # A4a: Attitude in ITRF
 
+**Status: done 2026-11-03.**
+
 Step plan for task A4a in `docs/tasks.md`; part of the A4 group (`docs/plans/A4_attitude_and_flow_overview.md`). Three components, one patch each, reviewed and pushed before the next.
 
 ## Goal

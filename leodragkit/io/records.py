@@ -68,12 +68,10 @@ class SatelliteStates:
     positions_m: np.ndarray  # (N, 3) in the frame below
     velocities_m_per_s: np.ndarray  # (N, 3) in the frame below
     frame: str  # a label from STATE_FRAMES
-    frame_as_written: str  # the file's own name for it, e.g. "IGS14", for provenance
-    satellite_id: str  # the file's identifier, e.g. "L48"
-    dropped_record_lines: tuple[
-        int, ...
-    ]  # line numbers of records the reader dropped (bad, unmatched, repeated)
-    input_record: InputRecord  # the file read (D-15)
+    frames_as_written: tuple[str, ...]  # each file's own name for it, e.g. ("IGS08",), for provenance
+    satellite_id: str  # the files' identifier, e.g. "134"
+    dropped_records: tuple[tuple[str, int], ...]  # (file name, line number) of each record a reader dropped
+    input_records: tuple[InputRecord, ...]  # every file read, in order (D-15)
 
     def __post_init__(self) -> None:
         _check_satellite_states(self)
@@ -87,11 +85,9 @@ def _check_satellite_states(states: SatelliteStates) -> None:
     # 1. Epochs: at least one, strictly increasing (so sorted, with no repeats).
     count = len(states.epochs)
     if count == 0:
-        raise ValueError(f"SatelliteStates needs at least one epoch ({states.input_record.path.name}).")
+        raise ValueError(f"SatelliteStates needs at least one epoch ({source_names(states)}).")
     if np.any(np.diff(states.epochs.gps) <= np.timedelta64(0, "ns")):
-        raise ValueError(
-            f"SatelliteStates epochs must be strictly increasing ({states.input_record.path.name})."
-        )
+        raise ValueError(f"SatelliteStates epochs must be strictly increasing ({source_names(states)}).")
 
     # 2. Positions and velocities: (N, 3) and finite.
     for name in ("positions_m", "velocities_m_per_s"):
@@ -104,13 +100,13 @@ def _check_satellite_states(states: SatelliteStates) -> None:
     # 3. Labels and provenance.
     if states.frame not in STATE_FRAMES:
         raise ValueError(f"SatelliteStates.frame must be one of {STATE_FRAMES}, got {states.frame!r}.")
-    for name in ("frame_as_written", "satellite_id"):
-        if not isinstance(getattr(states, name), str) or not getattr(states, name):
-            raise ValueError(f"SatelliteStates.{name} must be a non-empty string.")
-    if not all(isinstance(line, int) for line in states.dropped_record_lines):
-        raise ValueError("SatelliteStates.dropped_record_lines must be line numbers (integers).")
-    if not isinstance(states.input_record, InputRecord):
-        raise ValueError("SatelliteStates.input_record must be an InputRecord.")
+    if not isinstance(states.satellite_id, str) or not states.satellite_id:
+        raise ValueError("SatelliteStates.satellite_id must be a non-empty string.")
+    if not states.frames_as_written or not all(
+        isinstance(name, str) and name for name in states.frames_as_written
+    ):
+        raise ValueError("SatelliteStates.frames_as_written must be a non-empty tuple of names.")
+    _check_provenance(states, "SatelliteStates")
 
 
 class UnobservedAttitudeWarning(UserWarning):
@@ -146,10 +142,8 @@ class AttitudeRecords:
     ]  # every flag the file's version defines, e.g. {0: "observed", 1: "repeated"}
     satellite_id: str  # e.g. "FM134"
     file_version: str  # e.g. "1.2", which set flag_meanings
-    dropped_record_lines: tuple[
-        int, ...
-    ]  # line numbers of records the reader dropped (bad, unmatched, repeated)
-    input_record: InputRecord  # the file read (D-15)
+    dropped_records: tuple[tuple[str, int], ...]  # (file name, line number) of each record a reader dropped
+    input_records: tuple[InputRecord, ...]  # every file read, in order (D-15)
 
     def __post_init__(self) -> None:
         _check_attitude_records(self)
@@ -179,7 +173,7 @@ def keep_observed(records: AttitudeRecords) -> AttitudeRecords:
     observed_flags = [flag for flag, meaning in records.flag_meanings.items() if meaning == OBSERVED]
     keep = np.isin(records.quality_flags, observed_flags)
     if not np.any(keep):
-        raise ValueError(f"{records.input_record.path.name}: no attitude epoch was observed.")
+        raise ValueError(f"{source_names(records)}: no attitude epoch was observed.")
 
     # 2. Report what is left out, by meaning.
     if not np.all(keep):
@@ -189,7 +183,7 @@ def keep_observed(records: AttitudeRecords) -> AttitudeRecords:
         }
         counts = ", ".join(f"{meaning} {count}" for meaning, count in left_out.items())
         warn_every_time(
-            f"{records.input_record.path.name}: kept {int(np.sum(keep))} observed attitude epochs of "
+            f"{source_names(records)}: kept {int(np.sum(keep))} observed attitude epochs of "
             f"{len(records)}; left out {counts}.",
             UnobservedAttitudeWarning,
             caller_depth=1,
@@ -213,7 +207,7 @@ def keep_observed(records: AttitudeRecords) -> AttitudeRecords:
 def _check_attitude_records(records: AttitudeRecords) -> None:
     """Raise ValueError, naming the field, if an AttitudeRecords is inconsistent."""
     # 1. Epochs: at least one, strictly increasing.
-    name = records.input_record.path.name if isinstance(records.input_record, InputRecord) else "?"
+    name = source_names(records)
     count = len(records.epochs)
     if count == 0:
         raise ValueError(f"AttitudeRecords needs at least one epoch ({name}).")
@@ -259,7 +253,30 @@ def _check_attitude_records(records: AttitudeRecords) -> None:
     for field in ("satellite_id", "file_version"):
         if not isinstance(getattr(records, field), str) or not getattr(records, field):
             raise ValueError(f"AttitudeRecords.{field} must be a non-empty string.")
-    if not all(isinstance(line, int) for line in records.dropped_record_lines):
-        raise ValueError("AttitudeRecords.dropped_record_lines must be line numbers (integers).")
-    if not isinstance(records.input_record, InputRecord):
-        raise ValueError("AttitudeRecords.input_record must be an InputRecord.")
+    _check_provenance(records, "AttitudeRecords")
+
+
+def source_names(records) -> str:
+    """The names of the files a record came from, for messages: "a.sp3" or "a.sp3, b.sp3"."""
+    input_records = getattr(records, "input_records", ())
+    if not isinstance(input_records, tuple) or not all(
+        isinstance(item, InputRecord) for item in input_records
+    ):
+        return "?"
+    return ", ".join(item.path.name for item in input_records) or "?"
+
+
+def _check_provenance(records, owner: str) -> None:
+    """Raise ValueError unless input_records is a non-empty tuple of InputRecord and dropped_records holds
+    (file name, line number) pairs."""
+    if (
+        not isinstance(records.input_records, tuple)
+        or not records.input_records
+        or not all(isinstance(item, InputRecord) for item in records.input_records)
+    ):
+        raise ValueError(f"{owner}.input_records must be a non-empty tuple of InputRecord.")
+    if not isinstance(records.dropped_records, tuple) or not all(
+        isinstance(item, tuple) and len(item) == 2 and isinstance(item[0], str) and isinstance(item[1], int)
+        for item in records.dropped_records
+    ):
+        raise ValueError(f"{owner}.dropped_records must be (file name, line number) pairs.")

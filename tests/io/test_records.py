@@ -30,16 +30,16 @@ def three_states(tmp_path, leap_second_kernel):
         "positions_m": np.array([[6.9e6, 0.0, 0.0], [6.9e6, 7.6e4, 0.0], [6.9e6, 1.52e5, 0.0]]),
         "velocities_m_per_s": np.array([[0.0, 7.6e3, 0.0]] * 3),
         "frame": "ITRF",
-        "frame_as_written": "IGS14",
+        "frames_as_written": ("IGS14",),
         "satellite_id": "L48",
-        "dropped_record_lines": (),
-        "input_record": input_record_for(source),
+        "dropped_records": (),
+        "input_records": (input_record_for(source),),
     }
 
 
 def test_valid_states_are_built(three_states):
     states = SatelliteStates(**three_states)
-    assert len(states) == 3 and states.frame == "ITRF" and states.frame_as_written == "IGS14"
+    assert len(states) == 3 and states.frame == "ITRF" and states.frames_as_written == ("IGS14",)
 
 
 @pytest.mark.parametrize(
@@ -49,8 +49,10 @@ def test_valid_states_are_built(three_states):
         ("velocities_m_per_s", np.full((3, 3), np.nan), "velocities_m_per_s must be finite"),
         ("frame", "IGS14", "frame must be one of"),
         ("satellite_id", "", "satellite_id must be a non-empty string"),
-        ("dropped_record_lines", (12.0,), "line numbers"),
-        ("input_record", "orbit.sp3", "input_record must be an InputRecord"),
+        ("dropped_records", (12,), "\\(file name, line number\\) pairs"),
+        ("input_records", ("orbit.sp3",), "input_records must be a non-empty tuple of InputRecord"),
+        ("input_records", (), "input_records must be a non-empty tuple of InputRecord"),
+        ("frames_as_written", (), "frames_as_written must be a non-empty tuple"),
     ],
 )
 def test_an_inconsistent_field_raises_naming_it(three_states, field, value, message):
@@ -95,8 +97,8 @@ def five_attitudes(tmp_path, leap_second_kernel):
         "flag_meanings": SPIRE_FLAGS,
         "satellite_id": "FM134",
         "file_version": "1.2",
-        "dropped_record_lines": (),
-        "input_record": input_record_for(source),
+        "dropped_records": (),
+        "input_records": (input_record_for(source),),
     }
 
 
