@@ -140,6 +140,7 @@ leodragkit/
 |---|---|
 | [`docs/tasks.md`](docs/tasks.md) | the order of work and its status |
 | [`docs/guides/describing_a_spacecraft.md`](docs/guides/describing_a_spacecraft.md) | how to describe a spacecraft: shapes, placing and turning parts, the YAML format, the checks |
+| [`docs/guides/reading_orbit_and_attitude_files.md`](docs/guides/reading_orbit_and_attitude_files.md) | how to read orbit (SP3) and attitude (Spire) files, one or many, merge them, keep observed attitude, and hand them to the drag code |
 | [`notebooks/aero_tutorial.ipynb`](notebooks/aero_tutorial.ipynb) | running tutorial: building and plotting a spacecraft, one section per aero task |
 | [`docs/aero_plan.md`](docs/aero_plan.md) | how the aero module grows: models, geometry, shadowing, outputs, validation |
 | [`docs/decisions.md`](docs/decisions.md) | every design and science decision, with its reason (D-NN) and open questions (Q-NN) |

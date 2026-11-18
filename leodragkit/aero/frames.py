@@ -9,7 +9,7 @@ from ``io``'s records, giving times on one scale (for example ``epochs.gps`` and
 
 Read first: ``Attitude`` and ``attitude_from_quaternions``, then ``OrbitStates``, then the orbit frame
 (``inertial_velocity_in_itrf``, ``itrf_from_orbit_level``), ``attitude_from_law``, and ``attitude_in_itrf``
-with ``common_epochs``.
+with ``common_epochs``. Last, ``PanelFlowGeometry``: the flow on each panel (A4b).
 """
 
 from dataclasses import dataclass
@@ -37,6 +37,9 @@ QUATERNION_LENGTH_TOLERANCE = 1e-6
 # Technical Note 32 (McCarthy & Petit), Table 1.1, unchanged in the IAU 2009 system of astronomical constants.
 # Nominal: it ignores day-length changes of a few parts in 1e8, micrometres per second in v + ω × r.
 EARTH_ROTATION_RATE_RAD_PER_S = 7.292115e-5
+
+# How far from 1 (or 0) a unit (or zero) vector's length may be, after floating-point arithmetic.
+UNIT_LENGTH_TOLERANCE = 1e-9
 
 # Body axes an attitude law may name: a sign and an axis.
 BODY_AXES = {
@@ -113,6 +116,41 @@ class OrbitStates:
 
     def __len__(self) -> int:
         return len(self.times)
+
+
+@dataclass(frozen=True)
+class PanelFlowGeometry:
+    """How the flow meets each of N panels at each of T epochs, in the body frame: the gas-surface input.
+
+    With v_rel the velocity relative to the air in the body frame (D-50, D-79):
+
+    - ``speed_m_per_s`` is V = |v_rel|, and ``flow_direction`` is û = −v_rel / V, the way the air moves past;
+    - ``cos_incidence`` is cos δ = n̂ · v_rel / V = −n̂ · û: +1 facing the flow squarely (ram), 0 edge-on
+      (the flow skims along the panel), negative facing away (wake);
+    - ``shear_directions`` is t̂, û projected onto the panel and made unit length, or zero where the flow is
+      along the normal (sin δ = 0). So û · t̂ = sin δ = √(1 − cos²δ), which the checks confirm.
+
+    Built by ``panel_flow_geometry`` for whatever epochs it is given; ``drag_area`` (A5) feeds it chunks
+    (D-54, D-88). Per-epoch centroids are not held: nothing here needs them (D-88).
+    """
+
+    times: np.ndarray  # (T,) datetime64[ns], strictly increasing
+    time_scale: str  # from TIME_SCALES
+    speed_m_per_s: np.ndarray  # (T,), positive
+    flow_direction: np.ndarray  # (T, 3), unit vectors
+    cos_incidence: np.ndarray  # (T, N), in [−1, 1]
+    shear_directions: np.ndarray  # (T, N, 3), unit vectors or zero
+    source: str  # the attitude and orbit it came from
+
+    def __post_init__(self) -> None:
+        _check_panel_flow_geometry(self)
+
+    def __len__(self) -> int:
+        return len(self.times)
+
+    @property
+    def panel_count(self) -> int:
+        return self.cos_incidence.shape[1]
 
 
 def attitude_from_quaternions(
@@ -406,6 +444,53 @@ def common_epochs(attitude: Attitude, states: OrbitStates) -> tuple[Attitude, Or
             source=states.source,
         ),
     )
+
+
+def _check_panel_flow_geometry(geometry: PanelFlowGeometry) -> None:
+    """Raise ValueError, naming the field, if a PanelFlowGeometry is inconsistent."""
+    # 1. Times, then each array's shape and finiteness.
+    count = _check_times(geometry.times, geometry.time_scale, "PanelFlowGeometry")
+    cos_incidence = geometry.cos_incidence
+    if not isinstance(cos_incidence, np.ndarray) or cos_incidence.ndim != 2 or len(cos_incidence) != count:
+        raise ValueError(
+            f"PanelFlowGeometry.cos_incidence must have shape ({count}, N), got {np.shape(cos_incidence)}."
+        )
+    panels = cos_incidence.shape[1]
+    expected = {
+        "speed_m_per_s": (count,),
+        "flow_direction": (count, 3),
+        "cos_incidence": (count, panels),
+        "shear_directions": (count, panels, 3),
+    }
+    for name, shape in expected.items():
+        values = getattr(geometry, name)
+        if not isinstance(values, np.ndarray) or values.shape != shape or not np.all(np.isfinite(values)):
+            raise ValueError(
+                f"PanelFlowGeometry.{name} must be finite with shape {shape}, got {np.shape(values)}."
+            )
+
+    # 2. Positive speeds, unit flow directions, cosines in [−1, 1].
+    if np.any(geometry.speed_m_per_s <= 0):
+        raise ValueError(
+            "PanelFlowGeometry.speed_m_per_s must be positive: zero speed has no flow direction."
+        )
+    if np.any(np.abs(np.linalg.norm(geometry.flow_direction, axis=1) - 1) > UNIT_LENGTH_TOLERANCE):
+        raise ValueError("PanelFlowGeometry.flow_direction must be unit vectors.")
+    if np.any(np.abs(cos_incidence) > 1 + UNIT_LENGTH_TOLERANCE):
+        raise ValueError("PanelFlowGeometry.cos_incidence must lie in [−1, 1].")
+
+    # 3. Shear directions: unit or zero, and û · t̂ = sin δ (so t̂ points downstream along the panel).
+    lengths = np.linalg.norm(geometry.shear_directions, axis=2)
+    if np.any((lengths > UNIT_LENGTH_TOLERANCE) & (np.abs(lengths - 1) > UNIT_LENGTH_TOLERANCE)):
+        raise ValueError("PanelFlowGeometry.shear_directions must be unit vectors or zero.")
+    along = np.einsum("tk,tnk->tn", geometry.flow_direction, geometry.shear_directions)
+    sin_incidence = np.sqrt(np.clip(1 - cos_incidence**2, 0, None))
+    if np.any(np.abs(along - sin_incidence) > 1e-6):
+        raise ValueError(
+            "PanelFlowGeometry.shear_directions must be the flow direction projected onto each panel: û · t̂ "
+            "should equal sin δ = √(1 − cos²δ)."
+        )
+    _check_source(geometry.source, "PanelFlowGeometry")
 
 
 def _signed_axis(name: str) -> np.ndarray:

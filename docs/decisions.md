@@ -329,6 +329,16 @@ User, 2026-11-02. Details and references: `docs/plans/A4_attitude_and_flow_overv
 
 Details: `docs/plans/I3_merging.md`.
 
+**D-88. The flow on each panel (A4b).** User, 2026-11-04.
+
+1. **Inputs.** `panel_flow_geometry(panel_set, attitude, states)` takes an attitude already in ITRF, with the states' epochs.
+2. **Centroids.** Per-epoch centroids are left out of `PanelFlowGeometry`: nothing in A4b uses them; moments (A5) and shadowing (A6) take them from the `PanelSet`.
+3. **Ready for moving parts.** cos δ and t̂ are written so the normals may be (N, 3) or (T, N, 3), with a test of each. Moving parts (parked) can then come in as time-dependent component poses, normals(t) = R(t) · n₀, without changing A4b's maths.
+4. **Chunking.** It belongs in A5's `drag_area`, where the per-panel arrays are reduced to Cd·A; chunking inside A4b would save nothing while it returns every epoch. A4b gets a test that a slice of epochs gives the same rows as the full computation.
+5. **No parallel work** until A5's benchmark shows a need (an estimate, not run: seconds to tens of seconds for a day at 1 Hz with 10,000 triangles).
+6. **Zero speed** raises, naming the epoch.
+7. **Colours.** The plot colours panels by cos δ on a fixed diverging scale: blue (wake, −1), white (edge-on, 0: the flow perpendicular to the normal), red (ram, +1).
+
 ## Licence
 
 **D-32. leodragkit is released under the MIT licence.** User, 2026-10-27. This is compatible with D-28: the aero code is written from the published equations, and ADBSat's GPL-3 code is used only as a test oracle, never copied or translated.

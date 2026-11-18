@@ -1,5 +1,7 @@
 # I3: Merging records from several files
 
+**Status: done 2026-11-03.** User guide: `docs/guides/reading_orbit_and_attitude_files.md`.
+
 Step plan for task I3 in `docs/tasks.md`. Added before A4b on 2026-11-03, when the first end-to-end check had only the 11 minutes two single files shared. Written in full by Claude at the user's request, for review (D-87).
 
 ## Goal
