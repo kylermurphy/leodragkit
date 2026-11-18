@@ -1,4 +1,4 @@
-"""Tests for the shared downloader: atomic writes, size checks, headers. No network: requests.get is faked.
+"""Tests for the shared downloader: atomic writes, size checks, headers, an optional session. No network.
 
 Run: ``pytest tests/io/test_http_download.py``
 """
@@ -78,3 +78,36 @@ def test_a_download_without_a_size_is_accepted(tmp_path, monkeypatch):
         http_download.requests, "get", fake_get(FakeResponse([b"abc"], content_length=None), [])
     )
     assert download_file("https://example.org/f", tmp_path / "f").read_bytes() == b"abc"
+
+
+class FakeSession:
+    """Enough of requests.Session for download_file: a get that records its calls."""
+
+    def __init__(self, response, calls):
+        self.get = fake_get(response, calls)
+
+
+def test_with_a_session_the_file_comes_through_it(tmp_path, monkeypatch):
+    def no_plain_request(*arguments, **options):
+        pytest.fail("requests.get was called although a session was given")
+
+    monkeypatch.setattr(http_download.requests, "get", no_plain_request)
+    calls = []
+    session = FakeSession(FakeResponse([b"KPL/", b"LSK\n"]), calls)
+    target = tmp_path / "naif0012.tls"
+    assert download_file("https://example.org/naif0012.tls", target, session=session) == target
+    assert target.read_bytes() == b"KPL/LSK\n" and list(tmp_path.iterdir()) == [target]
+    (call,) = calls
+    assert call["headers"] == {"User-Agent": USER_AGENT} and call["timeout"] > 0 and call["stream"] is True
+
+
+def test_requests_drops_a_sessions_authorisation_when_a_redirect_leaves_the_host():
+    # download_file's docstring relies on this: a token sent to CSDA is not passed on to the storage host its
+    # files redirect to. Pinned here, so a change in requests would show.
+    session = requests.Session()
+    assert session.should_strip_auth(
+        "https://csdap.earthdata.nasa.gov/a", "https://bucket.s3.amazonaws.com/b"
+    )
+    assert not session.should_strip_auth(
+        "https://csdap.earthdata.nasa.gov/a", "https://csdap.earthdata.nasa.gov/c"
+    )

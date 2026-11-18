@@ -19,8 +19,18 @@ USER_AGENT = f"leodragkit/{__version__} (+https://github.com/kylermurphy/leodrag
 TIMEOUT_S = 60.0
 
 
-def download_file(url: str, target_path: Path) -> Path:
+def download_file(url: str, target_path: Path, session: requests.Session | None = None) -> Path:
     """Download ``url`` to ``target_path``, never leaving a partial file there, and return the path.
+
+    Parameters
+    ----------
+    url
+        What to download.
+    target_path
+        Where the file goes; its folder is created if needed.
+    session
+        A logged-in session whose headers or cookies authorise the request. None sends the request
+        without one. requests drops a session's Authorization header when a redirect leaves the host.
 
     Raises
     ------
@@ -33,8 +43,9 @@ def download_file(url: str, target_path: Path) -> Path:
     # 1. Stream into a .part file beside the target.
     target_path.parent.mkdir(parents=True, exist_ok=True)
     part_path = target_path.with_name(f"{target_path.name}.{os.getpid()}.part")
+    http_client = requests if session is None else session
     try:
-        with requests.get(
+        with http_client.get(
             url, headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT_S, stream=True
         ) as response:
             response.raise_for_status()
