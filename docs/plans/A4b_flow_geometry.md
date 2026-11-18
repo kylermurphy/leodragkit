@@ -164,3 +164,5 @@ All 495 tests passed, and both functions follow the plan. The one change: `panel
 | attitude law (+x first; 540 epochs) | 0.036 m² | 0.030 m² | 0.002 m² | 0.097 m² |
 
 These check by hand. Under FM134's attitude, the bus's −x face (0.1 × 0.34 m) at cos 18° is 0.032 m², plus 0.011 m² from the −y side at sin 18°; each panel (0.3 × 0.1 m) at cos 18° is 0.029 m². The panels are more than half the area facing the flow.
+
+**Fix after the user's first look (2026-11-04):** in the notebook, both sides of each solar panel looked blue, though the numbers were right: the −x side had cos δ = +0.957 (red) and the +x side −0.957 (blue). A two-sided plate's two sides are triangles in exactly the same place, so the renderer showed one of them from both directions. `plot_flow_on_spacecraft` now draws each triangle `DISPLAY_OFFSET_FRACTION` (0.2 %) of the spacecraft's size out along its own normal. That is display only, never used in a calculation, and each side is then seen from its own side. A test with a two-sided plate checks that the side facing the flow is drawn on the upstream side; it fails without the offset.

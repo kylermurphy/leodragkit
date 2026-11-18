@@ -11,7 +11,8 @@ import pytest
 from scipy.spatial.transform import Rotation
 
 from leodragkit.aero.frames import Attitude, OrbitStates, panel_flow_geometry
-from leodragkit.aero.geometry import panel_set_from_panels
+from leodragkit.aero.geometry import panel_set_from_panels, panel_set_from_triangles
+from leodragkit.aero.geometry_builder import build_plate_triangles
 from leodragkit.plots.spacecraft import (
     FLOW_TRACE_NAME,
     PANELS_BY_INCIDENCE_TRACE_NAME,
@@ -95,3 +96,24 @@ def test_a_geometry_for_other_panels_or_epoch_is_refused(go, unit_cube_panel_set
     )
     with pytest.raises(ValueError, match="1 panels, but the panel set has 12"):
         plot_flow_on_spacecraft(unit_cube_panel_set, flying_x(fewer))
+
+
+def test_each_side_of_a_two_sided_plate_is_drawn_on_its_own_side(go):
+    # The plate's two sides share one place; drawn there, a renderer shows one side from both directions.
+    # Each is moved slightly out along its own normal, so the side facing the flow is seen from upstream.
+    triangles = build_plate_triangles(1.0, 1.0, two_sided=True)  # in the x–y plane: normals +z and −z
+    plate = panel_set_from_triangles(
+        triangles,
+        component_ids=np.zeros(len(triangles), dtype=int),
+        material_ids=np.zeros(len(triangles), dtype=int),
+        component_names=("plate",),
+        material_names=("solar_cell",),
+        source="two-sided plate",
+    )
+    geometry = flying_x(
+        plate, velocities=((0.0, 0.0, -7.8e3), (0.0, 0.0, -7.8e3))
+    )  # flying −z first: flow +z
+    (mesh,) = named(plot_flow_on_spacecraft(plate, geometry), PANELS_BY_INCIDENCE_TRACE_NAME)
+    heights = np.asarray(mesh.z).reshape(-1, 3)[:, 0]
+    facing_flow = geometry.cos_incidence[0] > 0  # the −z side meets air moving along +z
+    assert np.all(heights[facing_flow] < 0) and np.all(heights[~facing_flow] > 0)

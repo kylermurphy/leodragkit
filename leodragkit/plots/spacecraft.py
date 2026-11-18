@@ -32,6 +32,10 @@ PANELS_BY_INCIDENCE_TRACE_NAME = "panels by cos δ"
 # cos δ from −1 (facing away, blue) through 0 (edge-on: the flow perpendicular to the normal, white) to +1
 # (facing the flow squarely, red), fixed to [−1, 1] so colours compare between epochs and spacecraft (D-88).
 INCIDENCE_COLORSCALE = [[0.0, "rgb(33, 102, 172)"], [0.5, "rgb(247, 247, 247)"], [1.0, "rgb(178, 24, 43)"]]
+# Each triangle is drawn this fraction of the spacecraft's size out along its own normal (display only).
+# The two sides of a two-sided plate occupy the same place, so without it the renderer shows one side from
+# both directions; separated, each side is seen from its own side, coloured by its own cos δ.
+DISPLAY_OFFSET_FRACTION = 0.002
 NO_POSITIONS_NOTE = "no panel positions: normals drawn from the origin, length proportional to area"
 
 
@@ -151,6 +155,8 @@ def plot_flow_on_spacecraft(
 
     Colours run from blue (cos δ = −1, facing away), through white (0, edge-on: the flow skims along the
     panel), to red (+1, facing the flow squarely), on a scale fixed to [−1, 1] (``INCIDENCE_COLORSCALE``).
+    Each triangle is drawn slightly out along its own normal (``DISPLAY_OFFSET_FRACTION``), so the two sides
+    of a two-sided plate, which share one place, are each seen from their own side.
     The flow is an arrow arriving from upstream, pointing along û, the way the air moves past the spacecraft.
 
     Parameters
@@ -203,7 +209,8 @@ def plot_flow_on_spacecraft(
         for p in range(len(cos_incidence))
     ]
     if panel_set.has_triangles:
-        corners_m = panel_set.triangle_vertices_m.reshape(-1, 3)
+        offset_m = DISPLAY_OFFSET_FRACTION * size_m * panel_set.outward_normals[:, np.newaxis, :]
+        corners_m = (panel_set.triangle_vertices_m + offset_m).reshape(-1, 3)
         first_corner = np.arange(0, len(corners_m), 3)
         figure.add_trace(
             go.Mesh3d(
