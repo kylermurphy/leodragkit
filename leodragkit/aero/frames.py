@@ -487,14 +487,14 @@ def panel_flow_geometry(panel_set: PanelSet, attitude: Attitude, states: OrbitSt
     # 1. The attitude in ITRF, on exactly the states' epochs.
     if attitude.frame != "ITRF":
         raise ValueError(
-            f"The attitude's reference frame is {attitude.frame!r}; turn it into ITRF first (attitude_in_itrf)."
+            f"The attitude's reference frame is {attitude.frame!r}; turn it into ITRF first "
+            "(attitude_in_itrf)."
         )
     check_same_epochs(attitude, states)
-    att_com, states_com = common_epochs(attitude,states)
 
     # 2. The relative velocity in the body frame:
     #    attitude.body_from_reference.apply(states.velocities_m_per_s).
-    v_rel = att_com.body_from_reference.apply(states_com.velocities_m_per_s)
+    v_rel = attitude.body_from_reference.apply(states.velocities_m_per_s)
     # 3. The speed V = |v| for each epoch; raise ValueError naming the first epoch where it is 0.
     speed = np.linalg.norm(v_rel, axis=1)
     if np.any(speed == 0):
@@ -546,18 +546,18 @@ def incidence_and_shear(
     # 1. Normals as (1, N, 3) or (T, N, 3), so both broadcast against û as (T, 1, 3).
     normals = np.asarray(outward_normals, dtype=float)
     if normals.ndim == 2:
-        normals = normals[np.newaxis, :, :] # (1, N, 3)
+        normals = normals[np.newaxis, :, :]  # (1, N, 3)
 
     # 2. û · n̂ for every epoch and panel: (T, N), e.g. np.sum(flow[:, None, :] * normals, axis=2).
     #    cos δ is its negative.
-    uhat = np.asarray(flow_direction, dtype=float)[:, np.newaxis, :] # (T, 1, 3)
-    udotn = np.sum(uhat * normals, axis=2) # (T, N, 3) summed over x, y, z → (T, N)
+    uhat = np.asarray(flow_direction, dtype=float)[:, np.newaxis, :]  # (T, 1, 3)
+    udotn = np.sum(uhat * normals, axis=2)  # (T, N, 3) summed over x, y, z → (T, N)
     cos_d = -udotn
     # 3. The projection û − (û · n̂) n̂: (T, N, 3), and its length: (T, N).
     proj = uhat - udotn[..., np.newaxis] * normals  # (T, 1, 3) − (T, N, 1)·(·, N, 3) → (T, N, 3)
     # 4. t̂ = projection / length where length > SHEAR_PROJECTION_TOLERANCE, otherwise 0
     #    (np.divide with out= and where= avoids dividing by zero).
-    length = np.linalg.norm(proj, axis=2)                               # (T, N)
+    length = np.linalg.norm(proj, axis=2)  # (T, N)
     long_enough = length[..., np.newaxis] > SHEAR_PROJECTION_TOLERANCE  # (T, N, 1)
     t = np.divide(proj, length[..., np.newaxis], out=np.zeros_like(proj), where=long_enough)
 

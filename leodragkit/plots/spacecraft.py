@@ -13,6 +13,7 @@ Read first: ``plot_panel_set_3d``.
 
 import numpy as np
 
+from leodragkit.aero.frames import PanelFlowGeometry
 from leodragkit.aero.geometry import PanelSet
 
 COLOR_BY_OPTIONS = ("component", "material")
@@ -26,6 +27,11 @@ NORMALS_TRACE_NAME = "outward normals"
 NORMAL_TIPS_TRACE_NAME = "normal tips"
 BODY_AXIS_TRACE_NAMES = ("body x", "body y", "body z")
 BODY_AXIS_COLOURS = ("red", "green", "blue")
+FLOW_TRACE_NAME = "flow (air past the spacecraft)"
+PANELS_BY_INCIDENCE_TRACE_NAME = "panels by cos δ"
+# cos δ from −1 (facing away, blue) through 0 (edge-on: the flow perpendicular to the normal, white) to +1
+# (facing the flow squarely, red), fixed to [−1, 1] so colours compare between epochs and spacecraft (D-88).
+INCIDENCE_COLORSCALE = [[0.0, "rgb(33, 102, 172)"], [0.5, "rgb(247, 247, 247)"], [1.0, "rgb(178, 24, 43)"]]
 NO_POSITIONS_NOTE = "no panel positions: normals drawn from the origin, length proportional to area"
 
 
@@ -129,6 +135,156 @@ def plot_panel_set_3d(
         ),
     )
     # 7. Return the figure.
+    return figure
+
+
+def plot_flow_on_spacecraft(
+    panel_set: PanelSet,
+    geometry: PanelFlowGeometry,
+    epoch_index: int = 0,
+    *,
+    show_edges: bool = True,
+    show_body_axes: bool = True,
+    figure=None,
+):
+    """Return a 3-D plotly figure of the panels coloured by cos δ at one epoch, with the flow drawn coming in.
+
+    Colours run from blue (cos δ = −1, facing away), through white (0, edge-on: the flow skims along the
+    panel), to red (+1, facing the flow squarely), on a scale fixed to [−1, 1] (``INCIDENCE_COLORSCALE``).
+    The flow is an arrow arriving from upstream, pointing along û, the way the air moves past the spacecraft.
+
+    Parameters
+    ----------
+    panel_set
+        The panels the geometry was computed for (``panel_flow_geometry``).
+    geometry
+        The flow on every panel at every epoch.
+    epoch_index
+        Which epoch to draw (negative counts from the end, as in Python).
+    show_edges, show_body_axes, figure
+        As in ``plot_panel_set_3d``.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        With traces: ``PANELS_BY_INCIDENCE_TRACE_NAME`` (one ``Mesh3d`` coloured per triangle, when the set
+        has triangles; otherwise a ``Scatter3d`` of normals from the origin, length proportional to area, with
+        markers coloured by cos δ), ``FLOW_TRACE_NAME`` (a line and a ``Cone``), the triangle edges and the
+        body axes. The title gives the time and the speed.
+
+    Raises
+    ------
+    ValueError
+        If the geometry is for a different number of panels, or ``epoch_index`` is out of range.
+
+    Example::
+
+        geometry = panel_flow_geometry(spacecraft.panel_set, attitude, states)
+        plot_flow_on_spacecraft(spacecraft.panel_set, geometry, epoch_index=0).show()
+    """
+    # 1. The geometry must belong to these panels; the epoch must exist.
+    if geometry.panel_count != panel_set.panel_count:
+        raise ValueError(
+            f"The geometry is for {geometry.panel_count} panels, but the panel set has "
+            f"{panel_set.panel_count}."
+        )
+    if not -len(geometry) <= epoch_index < len(geometry):
+        raise ValueError(f"epoch_index {epoch_index} is out of range for {len(geometry)} epochs.")
+    go = _import_plotly()
+    if figure is None:
+        figure = go.Figure()
+    cos_incidence = geometry.cos_incidence[epoch_index]
+    size_m = _largest_dimension_m(panel_set)
+
+    # 2. The panels, coloured by cos δ: one triangle per panel, or normals from the origin for a macro model.
+    colour_scale = {"colorscale": INCIDENCE_COLORSCALE, "cmin": -1.0, "cmax": 1.0}
+    hover = [
+        f"panel {p}<br>cos δ {cos_incidence[p]:.3f}<br>area {panel_set.areas_m2[p]:.4g} m²"
+        for p in range(len(cos_incidence))
+    ]
+    if panel_set.has_triangles:
+        corners_m = panel_set.triangle_vertices_m.reshape(-1, 3)
+        first_corner = np.arange(0, len(corners_m), 3)
+        figure.add_trace(
+            go.Mesh3d(
+                x=corners_m[:, 0],
+                y=corners_m[:, 1],
+                z=corners_m[:, 2],
+                i=first_corner,
+                j=first_corner + 1,
+                k=first_corner + 2,
+                intensity=cos_incidence,
+                intensitymode="cell",
+                colorbar={"title": "cos δ"},
+                flatshading=True,
+                name=PANELS_BY_INCIDENCE_TRACE_NAME,
+                hovertext=np.repeat(hover, 3),
+                hoverinfo="text",
+                **colour_scale,
+            )
+        )
+        if show_edges:
+            _add_edge_traces(figure, go, panel_set.triangle_vertices_m)
+    else:
+        relative_areas = panel_set.areas_m2 / panel_set.areas_m2.max()
+        tips_m = size_m * relative_areas[:, np.newaxis] * panel_set.outward_normals
+        figure.add_trace(
+            go.Scatter3d(
+                x=tips_m[:, 0],
+                y=tips_m[:, 1],
+                z=tips_m[:, 2],
+                mode="markers",
+                marker={"color": cos_incidence, "size": 6, "colorbar": {"title": "cos δ"}, **colour_scale},
+                name=PANELS_BY_INCIDENCE_TRACE_NAME,
+                hovertext=hover,
+                hoverinfo="text",
+            )
+        )
+        _add_normal_traces(figure, go, np.zeros_like(tips_m), tips_m)
+
+    # 3. The flow: a line from upstream to just short of the spacecraft, and a cone at its end, along û.
+    flow = geometry.flow_direction[epoch_index]
+    start_m, tip_m = -2.0 * size_m * flow, -0.8 * size_m * flow
+    figure.add_trace(
+        go.Scatter3d(
+            x=[start_m[0], tip_m[0]],
+            y=[start_m[1], tip_m[1]],
+            z=[start_m[2], tip_m[2]],
+            mode="lines",
+            line={"color": "black", "width": 6},
+            name=FLOW_TRACE_NAME,
+            legendgroup=FLOW_TRACE_NAME,
+        )
+    )
+    figure.add_trace(
+        go.Cone(
+            x=[tip_m[0]],
+            y=[tip_m[1]],
+            z=[tip_m[2]],
+            u=[flow[0]],
+            v=[flow[1]],
+            w=[flow[2]],
+            anchor="tip",
+            sizemode="absolute",
+            sizeref=0.3 * size_m,
+            colorscale=[[0, "black"], [1, "black"]],
+            showscale=False,
+            name=FLOW_TRACE_NAME,
+            legendgroup=FLOW_TRACE_NAME,
+            showlegend=False,
+            hoverinfo="skip",
+        )
+    )
+
+    # 4. Body axes and layout.
+    if show_body_axes:
+        _add_body_axes_traces(figure, go, size_m)
+    time = str(geometry.times[epoch_index])[:19]
+    speed = geometry.speed_m_per_s[epoch_index]
+    figure.update_layout(
+        title=f"{panel_set.source}: the flow at {time} {geometry.time_scale}, {speed:.0f} m/s",
+        scene={"aspectmode": "data", "xaxis_title": "x (m)", "yaxis_title": "y (m)", "zaxis_title": "z (m)"},
+    )
     return figure
 
 

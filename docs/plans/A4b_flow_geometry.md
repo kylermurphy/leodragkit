@@ -2,7 +2,7 @@
 
 Step plan for task A4b in `docs/tasks.md`; part of the A4 group (`docs/plans/A4_attitude_and_flow_overview.md`). Three components, one patch each.
 
-**Status: agreed 2026-11-04 (D-88); component 1 done; component 2 in progress (user).** The user's answers are at the end.
+**Status: done 2026-11-04 (D-88), pending the user's review of component 3.** The user's answers are at the end.
 
 ## Goal
 
@@ -26,8 +26,8 @@ These give the plate force of D-50, q·A·(C_p·(−n̂) + C_τ·t̂), and its d
 | # | Builds | Who |
 | --- | --- | --- |
 | 1 | `PanelFlowGeometry` (in `aero/frames.py`) and its checks | Claude (done) |
-| 2 | `panel_flow_geometry(panel_set, attitude, states)`: V, û; and `incidence_and_shear(normals, û)`: cos δ (T, N), t̂ (T, N, 3), for normals (N, 3) or (T, N, 3) | user (template in place) |
-| 3 | plot level 2: `plot_flow_on_spacecraft(panel_set, flow_geometry, epoch_index)`, the panels coloured by cos δ and the flow drawn as an arrow coming in; notebook section 13 | Claude |
+| 2 | `panel_flow_geometry(panel_set, attitude, states)`: V, û; and `incidence_and_shear(normals, û)`: cos δ (T, N), t̂ (T, N, 3), for normals (N, 3) or (T, N, 3) | user (done) |
+| 3 | plot level 2: `plot_flow_on_spacecraft(panel_set, flow_geometry, epoch_index)`, the panels coloured by cos δ and the flow drawn as an arrow coming in; notebook section 13 | Claude (done) |
 
 **`PanelFlowGeometry`:**
 
@@ -133,3 +133,34 @@ At the start: 11 failed (all `NotImplementedError`), 484 passed. Against a scrat
 3. **Chunking:** in A5, not here, plus a slice test here; no parallel work until A5's benchmark shows a need.
 4. **Zero speed** raises: yes.
 5. **Colours:** yes. Edge-on, white, means the flow is perpendicular to the panel's normal: it skims along the surface.
+
+## Review of component 2
+
+All 495 tests passed, and both functions follow the plan. The one change: `panel_flow_geometry` called `common_epochs` after `check_same_epochs`. Once the check has passed the two inputs share every epoch, so the call changed nothing but cost a sort and a copy, and suggested matching happens here. It was removed, with the rest using `attitude` and `states` directly. Ruff: one long error message, and comment spacing.
+
+## Component 3: the flow drawn on the spacecraft
+
+`plot_flow_on_spacecraft(panel_set, geometry, epoch_index=0)`, in `plots/spacecraft.py`:
+
+- **with triangles:** one `Mesh3d`, each triangle coloured by its cos δ (`intensitymode="cell"`), on `INCIDENCE_COLORSCALE` fixed to [−1, 1];
+- **macro models:** normals from the origin, length proportional to area, with markers coloured by cos δ;
+- **the flow:** a line from upstream ending in a cone along û;
+- **also:** the triangle edges and body axes as in `plot_panel_set_3d`, and a title with the time and speed;
+- **refuses** a geometry for a different number of panels, and an epoch out of range.
+
+**Tests (component 3):** 5, in `tests/plots/test_flow_plot.py`.
+
+- the unit cube flying +x first: each triangle's colour equals its cos δ (+1 on the +x face, −1 on −x, 0 on the sides), with the scale fixed;
+- the second epoch (+y first) colours the +y face;
+- the flow cone points along −x and comes in from +x;
+- a macro model's markers are coloured by cos δ;
+- refusals.
+
+**Notebook section 13:** the 3U CubeSat example (1700 panels) under section 12's attitude, coloured at the first epoch, and the **area facing the flow**, Σ A·max(cos δ, 0), by component. It ran here both ways:
+
+| | Bus | Each panel | Antenna | Total |
+| --- | --- | --- | --- | --- |
+| FM134's attitude (−x first, 18° yaw; 493 epochs) | 0.043 m² | 0.029 m² | 0.002 m² | 0.102 m² |
+| attitude law (+x first; 540 epochs) | 0.036 m² | 0.030 m² | 0.002 m² | 0.097 m² |
+
+These check by hand. Under FM134's attitude, the bus's −x face (0.1 × 0.34 m) at cos 18° is 0.032 m², plus 0.011 m² from the −y side at sin 18°; each panel (0.3 × 0.1 m) at cos 18° is 0.029 m². The panels are more than half the area facing the flow.
