@@ -2,7 +2,7 @@
 
 Step plan for task A4b in `docs/tasks.md`; part of the A4 group (`docs/plans/A4_attitude_and_flow_overview.md`). Three components, one patch each.
 
-**Status: agreed 2026-11-04 (D-88); component 1 done.** The user's answers are at the end.
+**Status: agreed 2026-11-04 (D-88); component 1 done; component 2 in progress (user).** The user's answers are at the end.
 
 ## Goal
 
@@ -26,7 +26,7 @@ These give the plate force of D-50, q·A·(C_p·(−n̂) + C_τ·t̂), and its d
 | # | Builds | Who |
 | --- | --- | --- |
 | 1 | `PanelFlowGeometry` (in `aero/frames.py`) and its checks | Claude (done) |
-| 2 | `panel_flow_geometry(panel_set, attitude, states)`: V, û, cos δ (T, N), t̂ (T, N, 3) | user |
+| 2 | `panel_flow_geometry(panel_set, attitude, states)`: V, û; and `incidence_and_shear(normals, û)`: cos δ (T, N), t̂ (T, N, 3), for normals (N, 3) or (T, N, 3) | user (template in place) |
 | 3 | plot level 2: `plot_flow_on_spacecraft(panel_set, flow_geometry, epoch_index)`, the panels coloured by cos δ and the flow drawn as an arrow coming in; notebook section 13 | Claude |
 
 **`PanelFlowGeometry`:**
@@ -81,6 +81,50 @@ These give the plate force of D-50, q·A·(C_p·(−n̂) + C_τ·t̂), and its d
 - **The definitions:** the hand values are recomputed from cos δ = −n̂ · û and t̂ = û − (û · n̂) n̂.
 - **Eight inconsistencies,** each named, including a shear pointing upstream.
 - **Times** that aren't increasing.
+
+## Component 2: the user's part
+
+Two functions, in `aero/frames.py`, each with its formula and numbered steps:
+
+| Function | Does |
+| --- | --- |
+| `panel_flow_geometry(panel_set, attitude, states)` | refuses an attitude not in ITRF, and different epochs (`check_same_epochs`); v_rel in the body frame; V, refusing zero and naming the epoch; û = −v_rel / V; then `incidence_and_shear` with the panels' (N, 3) normals; a `PanelFlowGeometry` on the attitude's times |
+| `incidence_and_shear(outward_normals, flow_direction)` | cos δ = −n̂ · û and t̂ = the projection of û onto each panel, made unit length (zero below `SHEAR_PROJECTION_TOLERANCE`, 10⁻¹²), for normals (N, 3) or (T, N, 3) by broadcasting: the normals as (1 or T, N, 3), û as (T, 1, 3) |
+
+Splitting the maths into `incidence_and_shear` lets moving parts pass (T, N, 3) normals later (D-88) without touching `panel_flow_geometry`.
+
+**Required reading:**
+
+- this plan's "Conventions";
+- D-50 and D-88;
+- `PanelFlowGeometry`'s docstring and checks;
+- numpy broadcasting: arrays of shapes (T, 1, 3) and (1, N, 3) combine into (T, N, 3);
+- `np.divide` with `out=` and `where=`.
+
+About 30 min.
+
+**Tests (component 2):** 11.
+
+- **`incidence_and_shear`:**
+  - the hand-worked cube and plate;
+  - (T, N, 3) normals, the same at every epoch, equal to (N, 3);
+  - normals that turn round between epochs change every cos δ's sign;
+  - turning 40 random panels about the flow direction keeps every cos δ and turns every t̂ with them;
+  - for random flows, t̂ lies in each panel's plane, has unit length, and û · t̂ = sin δ.
+- **`panel_flow_geometry`:**
+  - the whole calculation reproduces the hand-worked values (body axes = ITRF, flying +x);
+  - under the attitude law on a polar orbit at the equator, the +x face's cos δ = cos(atan(ωR / V)), the Earth's rotation of about 3.6°;
+  - a slice of epochs gives exactly the same rows as the full calculation (D-88: what makes chunking safe);
+  - a non-ITRF attitude, different epochs, and zero speed (naming epoch 1) are each refused.
+
+At the start: 11 failed (all `NotImplementedError`), 484 passed. Against a scratch implementation kept out of the repository, all 495 pass.
+
+**Traps:**
+
+- **The sign of cos δ:** it is −n̂ · û. û is where the air goes, so a face meeting it head-on has n̂ · û = −1.
+- **Broadcasting the normals:** give (N, 3) a leading axis of 1, `normals[np.newaxis]`. (T, N, 3) needs nothing.
+- **Dividing by a zero projection:** `np.divide(projection, length[..., np.newaxis], out=np.zeros_like(projection), where=length[..., np.newaxis] > SHEAR_PROJECTION_TOLERANCE)`. `where` needs the same shape as the result, hence the `[..., np.newaxis]`.
+- **The check on `PanelFlowGeometry`** (û · t̂ = sin δ) will catch a t̂ pointing upstream, so a sign slip in the projection shows up as a clear error.
 
 ## The user's answers (2026-11-04; D-88)
 

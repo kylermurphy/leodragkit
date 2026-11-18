@@ -9,7 +9,8 @@ from ``io``'s records, giving times on one scale (for example ``epochs.gps`` and
 
 Read first: ``Attitude`` and ``attitude_from_quaternions``, then ``OrbitStates``, then the orbit frame
 (``inertial_velocity_in_itrf``, ``itrf_from_orbit_level``), ``attitude_from_law``, and ``attitude_in_itrf``
-with ``common_epochs``. Last, ``PanelFlowGeometry``: the flow on each panel (A4b).
+with ``common_epochs``. Last, the flow on each panel (A4b): ``PanelFlowGeometry``, ``panel_flow_geometry``
+and ``incidence_and_shear``.
 """
 
 from dataclasses import dataclass
@@ -17,6 +18,8 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import ArrayLike
 from scipy.spatial.transform import Rotation
+
+from leodragkit.aero.geometry import PanelSet
 
 # Frame labels (the documented list in docs/plans/A4_attitude_and_flow_overview.md, D-79).
 ATTITUDE_FRAMES = ("ITRF", "orbit_level_spire")
@@ -40,6 +43,10 @@ EARTH_ROTATION_RATE_RAD_PER_S = 7.292115e-5
 
 # How far from 1 (or 0) a unit (or zero) vector's length may be, after floating-point arithmetic.
 UNIT_LENGTH_TOLERANCE = 1e-9
+
+# A projected flow shorter than this has no direction on the panel: the flow is along the normal (sin δ ≈ 0),
+# and the shear direction is set to zero (the shear coefficient is zero there anyway).
+SHEAR_PROJECTION_TOLERANCE = 1e-12
 
 # Body axes an attitude law may name: a sign and an axis.
 BODY_AXES = {
@@ -444,6 +451,117 @@ def common_epochs(attitude: Attitude, states: OrbitStates) -> tuple[Attitude, Or
             source=states.source,
         ),
     )
+
+
+def panel_flow_geometry(panel_set: PanelSet, attitude: Attitude, states: OrbitStates) -> PanelFlowGeometry:
+    """How the flow meets each panel at each epoch: speed, flow direction, cos δ and shear direction (D-88).
+
+    The velocity relative to the air is the ITRF velocity (the atmosphere co-rotates, D-25, D-79); the
+    attitude turns it into the body frame, where the panels' normals are.
+
+    Parameters
+    ----------
+    panel_set
+        The spacecraft's N panels in its body frame.
+    attitude
+        ``body_from_reference`` with reference ``"ITRF"`` (a Spire attitude goes through ``attitude_in_itrf``
+        first), at exactly the states' epochs.
+    states
+        Positions and velocities in ITRF.
+
+    Raises
+    ------
+    ValueError
+        If the attitude is not in ITRF, the epochs or time scales differ (``check_same_epochs``), or a speed
+        is zero, naming the first such epoch.
+
+    Memory: the shear directions are (T, N, 3) floats, about 20 GB for a day at 1 Hz with 10,000 panels.
+    Give it chunks of epochs (``drag_area``, A5, does): the result for a slice of epochs equals the same rows
+    of the full result.
+
+    Example::
+
+        geometry = panel_flow_geometry(spacecraft.panel_set, attitude_in_itrf(attitude, states), states)
+        geometry.cos_incidence[0]   # cos δ of every panel at the first epoch
+    """
+    # 1. The attitude in ITRF, on exactly the states' epochs.
+    if attitude.frame != "ITRF":
+        raise ValueError(
+            f"The attitude's reference frame is {attitude.frame!r}; turn it into ITRF first (attitude_in_itrf)."
+        )
+    check_same_epochs(attitude, states)
+    att_com, states_com = common_epochs(attitude,states)
+
+    # 2. The relative velocity in the body frame:
+    #    attitude.body_from_reference.apply(states.velocities_m_per_s).
+    v_rel = att_com.body_from_reference.apply(states_com.velocities_m_per_s)
+    # 3. The speed V = |v| for each epoch; raise ValueError naming the first epoch where it is 0.
+    speed = np.linalg.norm(v_rel, axis=1)
+    if np.any(speed == 0):
+        raise ValueError(f"epoch {int(np.flatnonzero(speed == 0)[0])}: zero speed, so no flow direction.")
+    # 4. The flow direction û = −v / V.
+    flow = -v_rel / speed[:, np.newaxis]
+
+    # 5. cos δ and t̂ from incidence_and_shear, with the panel set's (N, 3) normals.
+    cos_incidence, shear_directions = incidence_and_shear(panel_set.outward_normals, flow)
+    # 6. A PanelFlowGeometry with the attitude's times and scale, and a source naming the attitude and states.
+    return PanelFlowGeometry(
+        times=attitude.times,
+        time_scale=attitude.time_scale,
+        speed_m_per_s=speed,
+        flow_direction=flow,
+        cos_incidence=cos_incidence,
+        shear_directions=shear_directions,
+        source=f"attitude: {attitude.source}; orbit: {states.source}",
+    )
+
+
+def incidence_and_shear(
+    outward_normals: ArrayLike, flow_direction: ArrayLike
+) -> tuple[np.ndarray, np.ndarray]:
+    """cos δ and the shear direction t̂ of every panel at every epoch, from the normals and flow direction.
+
+        cos δ = −n̂ · û        t̂ = (û − (û · n̂) n̂) / |û − (û · n̂) n̂|,  or 0 where that length is below
+                                  SHEAR_PROJECTION_TOLERANCE (the flow along the normal)
+
+    Parameters
+    ----------
+    outward_normals
+        Unit normals, (N, 3) for a rigid spacecraft, or (T, N, 3) when panels move (D-88): the same code
+        handles both.
+    flow_direction
+        û, (T, 3) unit vectors in the same frame.
+
+    Returns
+    -------
+    cos_incidence : np.ndarray
+        (T, N).
+    shear_directions : np.ndarray
+        (T, N, 3), unit vectors or zero.
+
+    Example::
+
+        cos_delta, shear = incidence_and_shear([[1, 0, 0]], [[-1, 0, 0]])   # [[1.]], [[[0, 0, 0]]]
+    """
+    # 1. Normals as (1, N, 3) or (T, N, 3), so both broadcast against û as (T, 1, 3).
+    normals = np.asarray(outward_normals, dtype=float)
+    if normals.ndim == 2:
+        normals = normals[np.newaxis, :, :] # (1, N, 3)
+
+    # 2. û · n̂ for every epoch and panel: (T, N), e.g. np.sum(flow[:, None, :] * normals, axis=2).
+    #    cos δ is its negative.
+    uhat = np.asarray(flow_direction, dtype=float)[:, np.newaxis, :] # (T, 1, 3)
+    udotn = np.sum(uhat * normals, axis=2) # (T, N, 3) summed over x, y, z → (T, N)
+    cos_d = -udotn
+    # 3. The projection û − (û · n̂) n̂: (T, N, 3), and its length: (T, N).
+    proj = uhat - udotn[..., np.newaxis] * normals  # (T, 1, 3) − (T, N, 1)·(·, N, 3) → (T, N, 3)
+    # 4. t̂ = projection / length where length > SHEAR_PROJECTION_TOLERANCE, otherwise 0
+    #    (np.divide with out= and where= avoids dividing by zero).
+    length = np.linalg.norm(proj, axis=2)                               # (T, N)
+    long_enough = length[..., np.newaxis] > SHEAR_PROJECTION_TOLERANCE  # (T, N, 1)
+    t = np.divide(proj, length[..., np.newaxis], out=np.zeros_like(proj), where=long_enough)
+
+    return cos_d, t
 
 
 def _check_panel_flow_geometry(geometry: PanelFlowGeometry) -> None:
